@@ -98,7 +98,7 @@ func generateSocketPath() (string, error) {
 // origin, if non-empty, is sent as an Origin header by mpv (some CDNs like
 // Cinejoy's Lisbon/Solara require it).
 // It does NOT start the process.
-func buildPlayerCmd(url, title, referer, userAgent, origin string, subtitles []string, debug bool, socketPath string, startSecs float64, cfg *Config) (*exec.Cmd, error) {
+func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, subtitles []string, debug bool, socketPath string, startSecs float64, cfg *Config) (*exec.Cmd, error) {
 	if runtime.GOOS == "windows" {
 		mpv_executable = "mpv.exe"
 		vlc_executable = "vlc.exe"
@@ -147,6 +147,9 @@ func buildPlayerCmd(url, title, referer, userAgent, origin string, subtitles []s
 			}
 			if cfg.AudioDelay != 0 {
 				args = append(args, fmt.Sprintf("--audio-delay=%g", cfg.AudioDelay))
+			}
+			if audioLang != "" {
+				args = append(args, fmt.Sprintf("--alang=%s", audioLang))
 			}
 			for _, sub := range subtitles {
 				if sub != "" {
@@ -213,6 +216,9 @@ func buildPlayerCmd(url, title, referer, userAgent, origin string, subtitles []s
 			if cfg.AudioDelay != 0 {
 				args = append(args, fmt.Sprintf("--audio-delay=%g", cfg.AudioDelay))
 			}
+			if audioLang != "" {
+				args = append(args, fmt.Sprintf("--alang=%s", audioLang))
+			}
 			for _, sub := range subtitles {
 				if sub != "" {
 					args = append(args, fmt.Sprintf("--sub-file=%s", sub))
@@ -278,8 +284,9 @@ func readPositionViaIPC(client *gopv.Client) float64 {
 // Play starts the player and blocks until it exits.
 // hctx provides metadata for lifecycle hooks (on_play / on_exit).
 // origin, if non-empty, is sent as an Origin header by mpv.
+// audioLang, if non-empty, is passed to mpv as --alang (audio language preference).
 // Returns the final playback position in seconds; 0 if not tracked.
-func Play(url, title, referer, userAgent, origin string, subtitles []string, debug bool, startSecs float64, hctx HookContext) (float64, error) {
+func Play(url, title, referer, userAgent, origin, audioLang string, subtitles []string, debug bool, startSecs float64, hctx HookContext) (float64, error) {
 	cfg := LoadConfig()
 
 	hctx.StreamURL = url
@@ -298,7 +305,7 @@ func Play(url, title, referer, userAgent, origin string, subtitles []string, deb
 		}
 	}
 
-	cmd, err := buildPlayerCmd(url, title, referer, userAgent, origin, subtitles, debug, socketPath, startSecs, cfg)
+	cmd, err := buildPlayerCmd(url, title, referer, userAgent, origin, audioLang, subtitles, debug, socketPath, startSecs, cfg)
 	if err != nil {
 		return 0, err
 	}
@@ -391,9 +398,10 @@ func Play(url, title, referer, userAgent, origin string, subtitles []string, deb
 // startSecs, if > 0, tells mpv to seek to that position before playing.
 // cfg is used to append MpvArgs; if nil, LoadConfig() is called internally.
 // origin, if non-empty, is sent as an Origin header by mpv.
+// audioLang, if non-empty, is passed to mpv as --alang (audio language preference).
 // Returns the running *exec.Cmd so the caller can wait on or kill it.
-func StartPlayer(url, title, referer, userAgent, origin string, subtitles []string, debug bool, socketPath string, startSecs float64, cfg *Config) (*exec.Cmd, error) {
-	cmd, err := buildPlayerCmd(url, title, referer, userAgent, origin, subtitles, debug, socketPath, startSecs, cfg)
+func StartPlayer(url, title, referer, userAgent, origin, audioLang string, subtitles []string, debug bool, socketPath string, startSecs float64, cfg *Config) (*exec.Cmd, error) {
+	cmd, err := buildPlayerCmd(url, title, referer, userAgent, origin, audioLang, subtitles, debug, socketPath, startSecs, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -448,12 +456,13 @@ type PlayResult struct {
 // Position is tracked in real-time via MPV IPC (gopv), not via watch-later files.
 // hctx provides metadata for lifecycle hooks (on_play / on_exit).
 // origin, if non-empty, is sent as an Origin header by mpv.
+// audioLang, if non-empty, is passed to mpv as --alang (audio language preference).
 // Returns a PlayResult containing the chosen action and the last tracked position.
-func PlayWithControls(url, title, referer, userAgent, origin string, subtitles []string, debug bool, startSecs float64, hctx HookContext) (PlayResult, error) {
+func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, subtitles []string, debug bool, startSecs float64, hctx HookContext) (PlayResult, error) {
 	cfg := LoadConfig()
 
 	if !cfg.MinimizeOnPlay {
-		return playWithControlsVisible(url, title, referer, userAgent, origin, subtitles, debug, startSecs, hctx, cfg)
+		return playWithControlsVisible(url, title, referer, userAgent, origin, audioLang, subtitles, debug, startSecs, hctx, cfg)
 	}
 
 	// Minimize-on-play flow: capture the terminal once (while focused), tuck
@@ -477,7 +486,7 @@ func PlayWithControls(url, title, referer, userAgent, origin string, subtitles [
 			}
 		}
 
-		cmd, err := StartPlayer(url, title, referer, userAgent, origin, subtitles, debug, socketPath, startSecs, cfg)
+		cmd, err := StartPlayer(url, title, referer, userAgent, origin, audioLang, subtitles, debug, socketPath, startSecs, cfg)
 		if err != nil {
 			if socketPath != "" {
 				os.Remove(socketPath)
@@ -581,7 +590,7 @@ func PlayWithControls(url, title, referer, userAgent, origin string, subtitles [
 // playWithControlsVisible is the original PlayWithControls flow used when
 // minimize-on-play is disabled: the terminal stays visible and the control
 // menu appears shortly after the player launches.
-func playWithControlsVisible(url, title, referer, userAgent, origin string, subtitles []string, debug bool, startSecs float64, hctx HookContext, cfg *Config) (PlayResult, error) {
+func playWithControlsVisible(url, title, referer, userAgent, origin, audioLang string, subtitles []string, debug bool, startSecs float64, hctx HookContext, cfg *Config) (PlayResult, error) {
 	for {
 		fmt.Printf("Starting player for %s...\n", title)
 
@@ -598,7 +607,7 @@ func playWithControlsVisible(url, title, referer, userAgent, origin string, subt
 			}
 		}
 
-		cmd, err := StartPlayer(url, title, referer, userAgent, origin, subtitles, debug, socketPath, startSecs, cfg)
+		cmd, err := StartPlayer(url, title, referer, userAgent, origin, audioLang, subtitles, debug, socketPath, startSecs, cfg)
 		if err != nil {
 			if socketPath != "" {
 				os.Remove(socketPath)

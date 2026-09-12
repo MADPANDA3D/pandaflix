@@ -94,202 +94,33 @@ type cjCandidate struct {
 	captions int
 }
 
-type cjRequest struct {
-	kind    string // movie | series
-	tmdb    string
-	season  string
-	episode string
-	title   string
-	year    string
-}
-
 func NewCinejoy(client *http.Client) *Cinejoy {
 	return &Cinejoy{Client: client}
-}
-
-// --- ID encoding -----------------------------------------------------------
-
-// cinejoyID builds the composite ID carried through the Provider interface:
-//
-//	movie:  movie|<tmdb>|<title>|<year>
-//	series: series|<tmdb>|<season>|<episode>|<title>|<year>
-//
-// Pipe characters are removed from free-text parts so the encoding stays
-// unambiguous.
-func cinejoyID(cj cjRequest) string {
-	sanitize := func(s string) string {
-		return strings.ReplaceAll(s, "|", "-")
-	}
-	if cj.kind == "series" {
-		return strings.Join([]string{"series", cj.tmdb, cj.season, cj.episode, sanitize(cj.title), cj.year}, "|")
-	}
-	return strings.Join([]string{"movie", cj.tmdb, sanitize(cj.title), cj.year}, "|")
-}
-
-func parseCinejoyID(id string) (cj cjRequest, err error) {
-	parts := strings.Split(id, "|")
-	if len(parts) < 2 {
-		return cj, fmt.Errorf("invalid cinejoy ID")
-	}
-	cj.kind = parts[0]
-	cj.tmdb = parts[1]
-	if cj.tmdb == "" || !(cj.kind == "movie" || cj.kind == "series") {
-		return cj, fmt.Errorf("invalid cinejoy ID")
-	}
-	switch cj.kind {
-	case "movie":
-		if len(parts) > 2 {
-			cj.title = parts[2]
-		}
-		if len(parts) > 3 {
-			cj.year = parts[3]
-		}
-	case "series":
-		// Series IDs come in two shapes:
-		//   show:  series|<tmdb>|<title>|<year>            (GetSeasons input)
-		//   ep:    series|<tmdb>|<season>|<episode>|<title>|<year>
-		// Season/episode presence is enforced by resolve/GetEpisodes.
-		if len(parts) > 2 {
-			cj.season = parts[2]
-		}
-		if len(parts) > 3 {
-			cj.episode = parts[3]
-		}
-		if len(parts) > 4 {
-			cj.title = parts[4]
-		}
-		if len(parts) > 5 {
-			cj.year = parts[5]
-		}
-	}
-	return cj, nil
 }
 
 // --- Provider interface -----------------------------------------------------
 
 func (c *Cinejoy) Search(query string) ([]core.SearchResult, error) {
-	params := url.Values{}
-	params.Set("query", query)
-	params.Set("include_adult", "false")
-	params.Set("language", "en-US")
-	params.Set("page", "1")
-	params.Set("api_key", core.TMDB_API_KEY)
-
-	req, err := core.NewRequest("GET", fmt.Sprintf("%s/search/multi?%s", core.TMDB_BASE_URL, params.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var data core.TmdbSearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	var results []core.SearchResult
-	for _, r := range data.Results {
-		if r.MediaType != "movie" && r.MediaType != "tv" {
-			continue
-		}
-		title := r.Title
-		if title == "" {
-			title = r.Name
-		}
-		year := r.ReleaseDate
-		if year == "" {
-			year = r.FirstAirDate
-		}
-		if len(year) > 4 {
-			year = year[:4]
-		}
-		mediaType := core.Movie
-		if r.MediaType == "tv" {
-			mediaType = core.Series
-		}
-		poster := ""
-		if r.PosterPath != "" {
-			poster = core.TMDB_IMAGE_BASE_URL + r.PosterPath
-		}
-		results = append(results, core.SearchResult{
-			Title:  title,
-			URL:    fmt.Sprintf("%s/%s/%d?title=%s&year=%s", CinejoyBaseURL, r.MediaType, r.ID, url.QueryEscape(title), year),
-			Type:   mediaType,
-			Poster: poster,
-			Year:   year,
-		})
-	}
-	if len(results) == 0 {
-		return nil, fmt.Errorf("no results")
-	}
-	return results, nil
+	return tmdbSearch(c.Client, query, CinejoyBaseURL)
 }
 
 func (c *Cinejoy) GetMediaID(mediaURL string) (string, error) {
-	u, err := url.Parse(mediaURL)
+	r, err := tmdbMediaFromURL(mediaURL)
 	if err != nil {
 		return "", err
 	}
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid cinejoy URL")
-	}
-	kind := parts[0]
-	if kind == "tv" {
-		kind = "series"
-	} else if kind != "movie" {
-		return "", fmt.Errorf("invalid cinejoy URL")
-	}
-	return cinejoyID(cjRequest{
-		kind:  kind,
-		tmdb:  parts[1],
-		title: u.Query().Get("title"),
-		year:  u.Query().Get("year"),
-	}), nil
+	return tmdbMediaID(r), nil
 }
 
 func (c *Cinejoy) GetSeasons(mediaID string) ([]core.Season, error) {
-	cj, err := parseCinejoyID(mediaID)
+	show, err := parseTMDBMediaID(mediaID)
 	if err != nil {
 		return nil, err
 	}
-	if cj.kind != "series" {
+	if show.kind != "series" {
 		return nil, nil
 	}
-
-	req, err := core.NewRequest("GET", fmt.Sprintf("%s/tv/%s?api_key=%s", core.TMDB_BASE_URL, cj.tmdb, core.TMDB_API_KEY))
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var data core.TmdbShowDetails
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	var seasons []core.Season
-	for _, s := range data.Seasons {
-		if s.SeasonNumber == 0 {
-			continue
-		}
-		name := s.Name
-		if name == "" {
-			name = fmt.Sprintf("Season %d", s.SeasonNumber)
-		}
-		seasons = append(seasons, core.Season{
-			ID:   cinejoyID(cjRequest{kind: "series", tmdb: cj.tmdb, season: fmt.Sprintf("%d", s.SeasonNumber), title: cj.title, year: cj.year}),
-			Name: name,
-		})
-	}
-	return seasons, nil
+	return tmdbSeasons(c.Client, show)
 }
 
 func (c *Cinejoy) GetEpisodes(id string, isSeason bool) ([]core.Episode, error) {
@@ -298,37 +129,14 @@ func (c *Cinejoy) GetEpisodes(id string, isSeason bool) ([]core.Episode, error) 
 		return []core.Episode{{ID: id, Name: "Cinejoy"}}, nil
 	}
 
-	cj, err := parseCinejoyID(id)
+	season, err := parseTMDBMediaID(id)
 	if err != nil {
 		return nil, err
 	}
-	if cj.kind != "series" || cj.season == "" {
+	if season.kind != "series" || season.season == "" {
 		return nil, fmt.Errorf("invalid cinejoy season ID")
 	}
-
-	req, err := core.NewRequest("GET", fmt.Sprintf("%s/tv/%s/season/%s?api_key=%s", core.TMDB_BASE_URL, cj.tmdb, cj.season, core.TMDB_API_KEY))
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var data core.TmdbSeasonDetails
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	var episodes []core.Episode
-	for _, e := range data.Episodes {
-		episodes = append(episodes, core.Episode{
-			ID:   cinejoyID(cjRequest{kind: "series", tmdb: cj.tmdb, season: cj.season, episode: fmt.Sprintf("%d", e.EpisodeNumber), title: cj.title, year: cj.year}),
-			Name: fmt.Sprintf("E%02d - %s", e.EpisodeNumber, e.Name),
-		})
-	}
-	return episodes, nil
+	return tmdbEpisodes(c.Client, season)
 }
 
 func (c *Cinejoy) GetServers(id string) ([]core.Server, error) {
@@ -340,7 +148,7 @@ func (c *Cinejoy) GetServers(id string) ([]core.Server, error) {
 }
 
 func (c *Cinejoy) GetLink(serverID string) (string, error) {
-	cj, err := parseCinejoyID(serverID)
+	cj, err := parseTMDBMediaID(serverID)
 	if err != nil {
 		return "", err
 	}

@@ -13,36 +13,36 @@ import (
 )
 
 func TestCinejoyParseID(t *testing.T) {
-	movie, err := parseCinejoyID("movie|1108427|The Goonies|1985")
+	movie, err := parseTMDBMediaID("movie|1108427|The Goonies|1985")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if movie.kind != "movie" || movie.tmdb != "1108427" || movie.title != "The Goonies" || movie.year != "1985" {
 		t.Fatalf("unexpected movie parse: %+v", movie)
 	}
-	if got := cinejoyID(movie); got != "movie|1108427|The Goonies|1985" {
+	if got := tmdbMediaID(movie); got != "movie|1108427|The Goonies|1985" {
 		t.Fatalf("movie roundtrip mismatch: %s", got)
 	}
 
-	ep, err := parseCinejoyID("series|1396|1|1|Breaking Bad|2008")
+	ep, err := parseTMDBMediaID("series|1396|1|1|Breaking Bad|2008")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ep.kind != "series" || ep.tmdb != "1396" || ep.season != "1" || ep.episode != "1" || ep.title != "Breaking Bad" {
 		t.Fatalf("unexpected series parse: %+v", ep)
 	}
-	if got := cinejoyID(ep); got != "series|1396|1|1|Breaking Bad|2008" {
+	if got := tmdbMediaID(ep); got != "series|1396|1|1|Breaking Bad|2008" {
 		t.Fatalf("series roundtrip mismatch: %s", got)
 	}
 
 	for _, bad := range []string{"", "movie", "movie|", "tv|123|1|1|x", "episode|1|2|3"} {
-		if _, err := parseCinejoyID(bad); err == nil {
+		if _, err := parseTMDBMediaID(bad); err == nil {
 			t.Errorf("expected error for %q", bad)
 		}
 	}
 	// Lenient show-level series IDs (no season/episode) parse; resolvability is
 	// enforced in GetLink.
-	show, err := parseCinejoyID("series|1396|Breaking Bad|2008")
+	show, err := parseTMDBMediaID("series|1396|Breaking Bad|2008")
 	if err != nil || show.kind != "series" || show.tmdb != "1396" {
 		t.Fatalf("show-level series ID failed: %+v", err)
 	}
@@ -193,11 +193,11 @@ func TestCinejoyFetchURLGuards(t *testing.T) {
 
 func TestCinejoyIDSanitizesPipes(t *testing.T) {
 	// Titles containing pipe characters must not corrupt the ID encoding.
-	id := cinejoyID(cjRequest{kind: "movie", tmdb: "123", title: "A | B", year: "1999"})
+	id := tmdbMediaID(tmdbRequest{kind: "movie", tmdb: "123", title: "A | B", year: "1999"})
 	if strings.Contains(id, "A | B") {
 		t.Fatalf("pipe not sanitized: %s", id)
 	}
-	cj, err := parseCinejoyID(id)
+	cj, err := parseTMDBMediaID(id)
 	if err != nil || cj.title != "A - B" {
 		t.Fatalf("sanitized title not parsed back: %+v", err)
 	}

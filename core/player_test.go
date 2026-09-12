@@ -77,9 +77,9 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 
 				var playErr error
 				if entry == "Play" {
-					_, playErr = Play("https://example.invalid/video", "test", "", "", "", subtitles, false, 0, HookContext{})
+					_, playErr = Play("https://example.invalid/video", "test", "", "", "", "eng,en", subtitles, false, 0, HookContext{})
 				} else {
-					_, playErr = PlayWithControls("https://example.invalid/video", "test", "", "", "", subtitles, false, 0, HookContext{})
+					_, playErr = PlayWithControls("https://example.invalid/video", "test", "", "", "", "eng,en", subtitles, false, 0, HookContext{})
 				}
 				if launch == "success" && playErr != nil {
 					t.Fatal(playErr)
@@ -108,6 +108,9 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 					}
 					if !strings.Contains(string(data), "--audio-delay=0.25\n") {
 						t.Error("audio_delay was not forwarded to the player")
+					}
+					if !strings.Contains(string(data), "--alang=eng,en\n") {
+						t.Error("audio language preference was not forwarded to the player")
 					}
 				}
 				entries, err := os.ReadDir(filepath.Join(tmp, "mpvsockets"))

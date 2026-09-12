@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -99,15 +100,17 @@ var rootCmd = &cobra.Command{
 			provider = providers.NewAnimeDub(client)
 		} else if strings.EqualFold(providerName, "cineby") || strings.EqualFold(providerName, "vidking") || strings.EqualFold(providerName, "videasy") {
 			// Videasy backend is being shut down; legacy names resolve via
-			// Cinejoy so existing configs keep working.
-			provider = providers.NewCinejoy(client)
+			// Cinejoy (with VixSrc as an independent backup).
+			provider = newMovieFallback(client)
 		} else if strings.EqualFold(providerName, "cinejoy") {
-			provider = providers.NewCinejoy(client)
+			provider = newMovieFallback(client)
+		} else if strings.EqualFold(providerName, "vixsrc") {
+			provider = providers.NewVixSrc(client)
 		} else if strings.EqualFold(providerName, "youtube") {
 			provider = providers.NewYouTube(client)
 		} else {
 			providerName = "cinejoy"
-			provider = providers.NewCinejoy(client)
+			provider = newMovieFallback(client)
 		}
 
 		// Open history DB once; non-fatal if it fails.
@@ -154,10 +157,12 @@ var rootCmd = &cobra.Command{
 			case "anime-dub", "allanime-dub":
 				histProvider = providers.NewAnimeDub(client)
 			case "cineby", "vidking", "videasy", "cinejoy":
-				histProvider = providers.NewCinejoy(client)
+				histProvider = newMovieFallback(client)
+			case "vixsrc":
+				histProvider = providers.NewVixSrc(client)
 			default:
 				histProviderName = "cinejoy"
-				histProvider = providers.NewCinejoy(client)
+				histProvider = newMovieFallback(client)
 			}
 
 			ctx.Title = chosen.Title
@@ -263,7 +268,7 @@ var rootCmd = &cobra.Command{
 						return err
 					}
 					lastPos := getLastPosition(histDB, ctx.Title, 0, 0)
-					result, err := core.PlayWithControls(streamURL, ctx.Title, referer, USER_AGENT, streamOrigin(histProviderName), subtitles, debugFlag, lastPos, core.HookContext{
+					result, err := core.PlayWithControls(streamURL, ctx.Title, referer, USER_AGENT, streamOrigin(histProviderName), streamAudioLang(histProviderName), subtitles, debugFlag, lastPos, core.HookContext{
 						Title:    ctx.Title,
 						URL:      link,
 						Provider: histProviderName,
@@ -471,7 +476,7 @@ var rootCmd = &cobra.Command{
 						return err
 					}
 					lastPos := getLastPosition(histDB, ctx.Title, 0, 0)
-					result, err := core.PlayWithControls(streamURL, ctx.Title, referer, USER_AGENT, streamOrigin(providerName), subtitles, debugFlag, lastPos, core.HookContext{
+					result, err := core.PlayWithControls(streamURL, ctx.Title, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugFlag, lastPos, core.HookContext{
 						Title:    ctx.Title,
 						URL:      link,
 						Provider: providerName,
@@ -731,7 +736,7 @@ var rootCmd = &cobra.Command{
 					fmt.Printf("Referer: %s\n", referer)
 				}
 				lastPos := getLastPosition(histDB, ctx.Title, 0, 0)
-				result, err := core.PlayWithControls(streamURL, ctx.Title, referer, USER_AGENT, streamOrigin(providerName), subtitles, debugFlag, lastPos, core.HookContext{
+				result, err := core.PlayWithControls(streamURL, ctx.Title, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugFlag, lastPos, core.HookContext{
 					Title:    ctx.Title,
 					URL:      link,
 					Provider: providerName,
@@ -800,11 +805,36 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// newMovieFallback builds the default movie/TV provider chain: Cinejoy with
+// VixSrc as an independent backup. Both share the same TMDB request-ID format,
+// so a failure in one transparently retries the other.
+func newMovieFallback(client *http.Client) core.Provider {
+	return providers.NewFallback(
+		providers.NewCinejoy(client),
+		providers.NewVixSrc(client),
+		"Cinejoy",
+		"VixSrc",
+	)
+}
+
 // streamOrigin returns the extra Origin header required by the given
 // provider's CDNs during player playback, or "" when none is needed.
 func streamOrigin(providerName string) string {
 	if strings.EqualFold(providerName, "cinejoy") {
 		return providers.CinejoyBaseURL
+	}
+	if strings.EqualFold(providerName, "vixsrc") {
+		return providers.VixSrcBaseURL
+	}
+	return ""
+}
+
+// streamAudioLang returns the mpv audio-language preference for the given
+// provider. Both current providers expose English tracks; VixSrc defaults to
+// its Italian dub, so English must be requested explicitly.
+func streamAudioLang(providerName string) string {
+	if strings.EqualFold(providerName, "cinejoy") || strings.EqualFold(providerName, "vixsrc") {
+		return "eng,en"
 	}
 	return ""
 }
@@ -829,6 +859,9 @@ func resolveStreamURL(
 	}
 	if strings.EqualFold(providerName, "cinejoy") {
 		referer = providers.CinejoyBaseURL + "/"
+	}
+	if strings.EqualFold(providerName, "vixsrc") {
+		referer = providers.VixSrcBaseURL + "/"
 	}
 
 	if strings.EqualFold(providerName, "hdrezka") {
@@ -856,7 +889,7 @@ func resolveStreamURL(
 		if streamURL == "" {
 			streamURL = link
 		}
-	} else if isAnimeProvider(providerName) || strings.EqualFold(providerName, "cinejoy") || strings.EqualFold(providerName, "youtube") {
+	} else if isAnimeProvider(providerName) || strings.EqualFold(providerName, "cinejoy") || strings.EqualFold(providerName, "vixsrc") || strings.EqualFold(providerName, "youtube") {
 		streamURL = link
 		if idx := strings.Index(streamURL, "|referer="); idx != -1 {
 			refererStr := streamURL[idx+9:]
@@ -1064,7 +1097,7 @@ func buildProcessStream(
 				fmt.Printf("Referer: %s\n", referer)
 			}
 			lastPos := getLastPosition(histDB, ctx.Title, season, episode)
-			posSecs, playErr := core.Play(streamURL, name, referer, USER_AGENT, streamOrigin(providerName), subtitles, debugMode, lastPos, core.HookContext{
+			posSecs, playErr := core.Play(streamURL, name, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugMode, lastPos, core.HookContext{
 				Title:    ctx.Title,
 				URL:      link,
 				Season:   season,
@@ -1157,7 +1190,7 @@ func playSeriesWithControls(
 		}
 
 		lastPos := getLastPosition(histDB, ctx.Title, seasonNum, ewn.num)
-		result, err := core.PlayWithControls(streamURL, ctx.Title+" - "+ep.Name, referer, USER_AGENT, streamOrigin(providerName), subtitles, debugMode, lastPos, core.HookContext{
+		result, err := core.PlayWithControls(streamURL, ctx.Title+" - "+ep.Name, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugMode, lastPos, core.HookContext{
 			Title:    ctx.Title,
 			URL:      link,
 			Season:   seasonNum,
