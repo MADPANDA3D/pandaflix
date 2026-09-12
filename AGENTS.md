@@ -579,4 +579,4 @@ if strings.EqualFold(providerName, "sflix") || strings.EqualFold(providerName, "
 ## Resources
 
 - GitHub: https://github.com/MADPANDA3D/pandaflix
-- Discord: https://discord.gg/JF85vTkDyC
+- Discord: https://discord.gg/X6FzCz5vR

@@ -25,7 +25,7 @@
 <br>
 
 
-<a href="https://discord.gg/JF85vTkDyC"><img src="https://invidget.switchblade.xyz/JF85vTkDyC"></a><a href="https://matrix.to/#/#swarn-discord:chat.demonkingswarn.live"><img src="./.assets/matrix-logo.svg"></a>
+<a href="https://discord.gg/X6FzCz5vR"><img src="https://invidget.switchblade.xyz/X6FzCz5vR"></a>
 
 </div>
 <br>
@@ -386,7 +386,7 @@ Please try these steps first:
 
 3. **Try a different title** — the content may be unavailable on the provider.
 
-4. **Check the [Discord](https://discord.gg/JF85vTkDyC)** — someone may have already reported the same issue.
+4. **Check the [Discord](https://discord.gg/X6FzCz5vR)** — someone may have already reported the same issue.
 
 If none of the above helps, open an issue and include:
 - The exact command you ran
