@@ -25,6 +25,16 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 	argsFile := filepath.Join(root, "args")
 	t.Setenv("LUFFY_TEST_ARGS", argsFile)
 
+	// Fixture config: keep tests away from real window management and verify
+	// that audio_delay is forwarded to the player.
+	cfgDir := filepath.Join(root, ".config", "pandaflix")
+	if err := os.MkdirAll(cfgDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.yaml"), []byte("minimize_on_play: false\naudio_delay: 0.25\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
 	// Avoid an interactive fzf menu even when go test runs from a terminal.
 	stdin, err := os.Open(os.DevNull)
 	if err != nil {
@@ -95,6 +105,9 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 					}
 					if strings.Contains(string(data), "--sub-file=\n") {
 						t.Error("empty subtitle was forwarded")
+					}
+					if !strings.Contains(string(data), "--audio-delay=0.25\n") {
+						t.Error("audio_delay was not forwarded to the player")
 					}
 				}
 				entries, err := os.ReadDir(filepath.Join(tmp, "mpvsockets"))
