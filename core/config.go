@@ -107,6 +107,9 @@ type Config struct {
 	// MinimizeOnPlay hides the terminal window while the player is open and
 	// restores it when playback ends (Hyprland via hyprctl, else xdotool).
 	MinimizeOnPlay bool `yaml:"minimize_on_play"`
+	// AudioDelay shifts audio relative to video in seconds for mpv: positive
+	// values delay audio (use when audio plays early), negative advance it.
+	AudioDelay float64 `yaml:"audio_delay"`
 	// MpvArgs holds extra command-line arguments appended to every mpv invocation.
 	// Example: ["--hwdec=auto", "--volume=80"]
 	MpvArgs []string    `yaml:"mpv_args"`

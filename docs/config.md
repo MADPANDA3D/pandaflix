@@ -25,6 +25,7 @@ If the file does not exist, cannot be read, or contains invalid YAML, `LoadConfi
 | `dl_path` | `""` | Download destination; empty means the user's home directory |
 | `quality` | `""` | Empty means show fzf prompt; set to `"best"` to auto-select highest quality |
 | `minimize_on_play` | `true` | Hide the terminal window while the player is open and restore it when playback ends (Hyprland via `hyprctl`, other Linux via `xdotool`; no-op without those tools) |
+| `audio_delay` | `0` | mpv audio delay in seconds; positive delays audio (use when audio plays early), negative advances it |
 | `mpv_args` | `[]` | Extra CLI arguments appended to every mpv invocation |
 | `hooks.on_play` | `""` | Shell command run before the player launches |
 | `hooks.on_exit` | `""` | Shell command run after the player exits |

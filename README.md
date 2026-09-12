@@ -291,6 +291,10 @@ quality: ""
 # playback ends (Hyprland via hyprctl, other Linux via xdotool).
 minimize_on_play: true
 
+# Shift audio relative to video (seconds; positive delays audio, negative
+# advances it) — use if a stream's audio plays slightly early/late.
+audio_delay: 0
+
 # Extra arguments appended to every mpv invocation (ignored on VLC/IINA/Android).
 # mpv_args:
 #   - "--hwdec=auto"
