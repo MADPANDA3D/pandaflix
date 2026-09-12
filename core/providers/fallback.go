@@ -2,8 +2,14 @@ package providers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/MADPANDA3D/pandaflix/core"
+)
+
+const (
+	fallbackPrimaryPrefix = "primary|"
+	fallbackBackupPrefix  = "backup|"
 )
 
 // Fallback tries the primary provider first and transparently retries read
@@ -46,6 +52,14 @@ func (f *Fallback) GetSeasons(mediaID string) ([]core.Season, error) {
 }
 
 func (f *Fallback) GetEpisodes(id string, isSeason bool) ([]core.Episode, error) {
+	if !isSeason {
+		// Movie flows use the "episode" list as the server list: expose both
+		// providers so the backup is visible and selectable.
+		return []core.Episode{
+			{ID: fallbackPrimaryPrefix + id, Name: f.PrimaryName},
+			{ID: fallbackBackupPrefix + id, Name: f.BackupName},
+		}, nil
+	}
 	episodes, err := f.Primary.GetEpisodes(id, isSeason)
 	if err == nil && len(episodes) > 0 {
 		return episodes, nil
@@ -53,15 +67,34 @@ func (f *Fallback) GetEpisodes(id string, isSeason bool) ([]core.Episode, error)
 	return f.Backup.GetEpisodes(id, isSeason)
 }
 
-func (f *Fallback) GetServers(episodeID string) ([]core.Server, error) {
-	servers, err := f.Primary.GetServers(episodeID)
-	if err == nil && len(servers) > 0 {
-		return servers, nil
-	}
-	return f.Backup.GetServers(episodeID)
+func (f *Fallback) GetServers(id string) ([]core.Server, error) {
+	// Expose the primary and the independent backup as selectable servers.
+	// IDs carry the provider choice; each selection still retries the other
+	// provider as a safety net.
+	return []core.Server{
+		{ID: fallbackPrimaryPrefix + id, Name: f.PrimaryName + " (Auto)"},
+		{ID: fallbackBackupPrefix + id, Name: f.BackupName + " (Auto)"},
+	}, nil
 }
 
 func (f *Fallback) GetLink(serverID string) (string, error) {
+	if id, ok := strings.CutPrefix(serverID, fallbackPrimaryPrefix); ok {
+		link, err := f.Primary.GetLink(id)
+		if err == nil {
+			return link, nil
+		}
+		fmt.Printf("%s unavailable (%v); trying %s...\n", f.PrimaryName, err, f.BackupName)
+		return f.Backup.GetLink(id)
+	}
+	if id, ok := strings.CutPrefix(serverID, fallbackBackupPrefix); ok {
+		link, err := f.Backup.GetLink(id)
+		if err == nil {
+			return link, nil
+		}
+		fmt.Printf("%s unavailable (%v); trying %s...\n", f.BackupName, err, f.PrimaryName)
+		return f.Primary.GetLink(id)
+	}
+	// Unprefixed IDs fall back to the default chain.
 	link, err := f.Primary.GetLink(serverID)
 	if err == nil {
 		return link, nil
