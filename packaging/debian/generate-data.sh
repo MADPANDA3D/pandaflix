@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -e
-PKG="luffy"
+PKG="pandaflix"
 EMAIL="swarnadityasingh@pm.me"
 NAME="Swarnaditya Singh"
 VERSION=1.2.0
@@ -21,7 +21,7 @@ Priority: optional
 Maintainer: ${NAME} <${EMAIL}>
 Build-Depends: debhelper-compat (= 13), just
 Standards-Version: 4.6.2
-Homepage: https://github.com/demonkingswarn/luffy
+Homepage: https://github.com/MADPANDA3D/pandaflix
 Rules-Requires-Root: no
 
 Package: ${PKG}
@@ -34,7 +34,7 @@ EOF
 cat > debian/rules <<'EOF'
 #!/usr/bin/make -f
 include /usr/share/dpkg/pkg-info.mk
-export DH_GOPKG := github.com/demonkingswarn/luffy
+export DH_GOPKG := github.com/MADPANDA3D/pandaflix
 export GOFLAGS := -trimpath
 export GO111MODULE := on
 export GOTOOLCHAIN := local
@@ -47,7 +47,7 @@ override_dh_auto_build:
 
 
 override_dh_auto_install:
-	install -D -m 0755 builds/luffy-linux-amd64 debian/luffy/usr/bin/luffy
+	install -D -m 0755 builds/pandaflix-linux-amd64 debian/pandaflix/usr/bin/pandaflix
 
 override_dh_strip:
   # binary already stripped

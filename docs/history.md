@@ -6,9 +6,9 @@ Luffy's watch history system (`core/history.go`) records every title you play in
 
 ### 1. Database Location and Opening
 
-The database lives at `~/.config/luffy/history.sqlite`. When `OpenHistory` is called it:
+The database lives at `~/.config/pandaflix/history.sqlite`. When `OpenHistory` is called it:
 
-1. Resolves `~/.config/luffy/` and creates the directory if it does not exist.
+1. Resolves `~/.config/pandaflix/` and creates the directory if it does not exist.
 2. Opens (or creates) the SQLite file using the CGO-free `modernc.org/sqlite` driver — no C toolchain is required for any build target.
 3. Runs `migrate()` to ensure the schema is up-to-date.
 
@@ -96,7 +96,7 @@ type DB struct {
 
 ```go
 // OpenHistory opens (or creates) the history database at
-// ~/.config/luffy/history.sqlite. The caller must call db.Close()
+// ~/.config/pandaflix/history.sqlite. The caller must call db.Close()
 // when finished.
 func OpenHistory() (*DB, error)
 
@@ -119,6 +119,6 @@ func FormatShowLabel(s ShowSummary) string
 
 | Function | Purpose |
 |----------|---------|
-| `historyDBPath` | Resolves `~/.config/luffy/history.sqlite`, creating the config dir if needed |
+| `historyDBPath` | Resolves `~/.config/pandaflix/history.sqlite`, creating the config dir if needed |
 | `migrate` | Creates the `history` table and applies column additions for schema upgrades |
 | `parseTime` | Parses SQLite `DATETIME` strings in multiple possible formats into `time.Time` |

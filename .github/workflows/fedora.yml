@@ -5,7 +5,7 @@ on:
     paths:
       - ".github/workflows/fedora.yml"
       - "packaging/fedora/generate-data.sh"
-      - "packaging/fedora/luffy.spec"
+      - "packaging/fedora/pandaflix.spec"
       - "workflow-trigger"
   workflow_dispatch:
 
@@ -33,17 +33,17 @@ jobs:
         run: bash ./packaging/fedora/generate-data.sh
 
       - name: fetch sources
-        run: spectool -g -R packaging/fedora/luffy.spec
+        run: spectool -g -R packaging/fedora/pandaflix.spec
 
       - name: build rpm
-        run: rpmbuild -ba packaging/fedora/luffy.spec
+        run: rpmbuild -ba packaging/fedora/pandaflix.spec
 
       - name: collect artifacts
         run: |
-          cp -v ~/rpmbuild/RPMS/*/*.rpm luffy-1.2.0.rpm
+          cp -v ~/rpmbuild/RPMS/*/*.rpm pandaflix-1.2.0.rpm
 
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: luffy-rpm
-          path: luffy-1.2.0.rpm
+          name: pandaflix-rpm
+          path: pandaflix-1.2.0.rpm

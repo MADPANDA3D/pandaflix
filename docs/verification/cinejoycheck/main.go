@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/demonkingswarn/luffy/core"
-	"github.com/demonkingswarn/luffy/core/providers"
+	"github.com/MADPANDA3D/pandaflix/core"
+	"github.com/MADPANDA3D/pandaflix/core/providers"
 )
 
 const userAgent = "Mozilla/5.0"

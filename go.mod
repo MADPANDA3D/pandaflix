@@ -1,4 +1,4 @@
-module github.com/demonkingswarn/luffy
+module github.com/MADPANDA3D/pandaflix
 
 go 1.26
 

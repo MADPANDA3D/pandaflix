@@ -16,9 +16,9 @@ func DownloadYTDLP(basePath, dlPath, name, url, referer, userAgent string, debug
 	}
 
 	if dlPath == "" {
-		dlPath = filepath.Join(basePath, "Downloads", "luffy")
+		dlPath = filepath.Join(basePath, "Downloads", "pandaflix")
 	} else {
-		dlPath = filepath.Join(dlPath, "luffy")
+		dlPath = filepath.Join(dlPath, "pandaflix")
 	}
 	if err := os.MkdirAll(dlPath, 0755); err != nil {
 		return fmt.Errorf("failed to create download directory: %w", err)

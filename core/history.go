@@ -32,13 +32,14 @@ type DB struct {
 	conn *sql.DB
 }
 
-// historyDBPath returns ~/.config/luffy/history.sqlite.
+// historyDBPath returns the pandaflix history database path. Legacy luffy
+// data is ingested by pandaflixConfigDir on first use.
 func historyDBPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("history: could not determine home dir: %w", err)
 	}
-	dir := filepath.Join(home, ".config", "luffy")
+	dir := pandaflixConfigDir(home)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("history: could not create config dir: %w", err)
 	}

@@ -1,6 +1,6 @@
 # Hooks & MpvArgs
 
-Luffy supports user-defined shell commands that run at key playback lifecycle points, and extra mpv arguments that are passed on every invocation. Both are configured in `~/.config/luffy/config.yaml`.
+Luffy supports user-defined shell commands that run at key playback lifecycle points, and extra mpv arguments that are passed on every invocation. Both are configured in `~/.config/pandaflix/config.yaml`.
 
 ## MpvArgs
 
@@ -69,14 +69,14 @@ hooks:
 ```yaml
 hooks:
   on_exit: |
-    echo "$(date '+%F %T') | $LUFFY_TITLE S${LUFFY_SEASON}E${LUFFY_EPISODE} | stopped at ${LUFFY_POSITION}s" >> ~/luffy.log
+    echo "$(date '+%F %T') | $LUFFY_TITLE S${LUFFY_SEASON}E${LUFFY_EPISODE} | stopped at ${LUFFY_POSITION}s" >> ~/pandaflix.log
 ```
 
 **Update a now-playing status (e.g. Discord rich presence via a script):**
 ```yaml
 hooks:
-  on_play: '~/.local/bin/luffy-rich-presence set "$LUFFY_TITLE"'
-  on_exit: '~/.local/bin/luffy-rich-presence clear'
+  on_play: '~/.local/bin/pandaflix-rich-presence set "$LUFFY_TITLE"'
+  on_exit: '~/.local/bin/pandaflix-rich-presence clear'
 ```
 
 **Notification before download:**
@@ -92,7 +92,7 @@ mpv_args:
 
 hooks:
   on_play: 'notify-send "Now playing" "$LUFFY_TITLE"'
-  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/luffy.log'
+  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/pandaflix.log'
   on_download: 'notify-send "Downloading" "$LUFFY_TITLE"'
 ```
 

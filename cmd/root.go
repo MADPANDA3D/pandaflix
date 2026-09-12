@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/demonkingswarn/luffy/core"
-	"github.com/demonkingswarn/luffy/core/providers"
+	"github.com/MADPANDA3D/pandaflix/core"
+	"github.com/MADPANDA3D/pandaflix/core/providers"
 	"github.com/spf13/cobra"
 )
 
@@ -72,7 +72,7 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:     "luffy [query]",
+	Use:     "pandaflix [query]",
 	Short:   "Watch movies and TV shows from the commandline",
 	Version: core.Version,
 	Args:    cobra.ArbitraryArgs,

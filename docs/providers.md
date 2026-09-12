@@ -134,7 +134,7 @@ HDRezka is a Russian-language streaming site. It uses a proprietary ID encoding 
 
 **Base URL**: `https://www.youtube.com`
 
-YouTube support is provided for watching YouTube content through luffy's player integration. Quality selection and download use yt-dlp via the player or the `--download` flag.
+YouTube support is provided for watching YouTube content through pandaflix's player integration. Quality selection and download use yt-dlp via the player or the `--download` flag.
 
 | Method | Mechanism |
 |--------|-----------|

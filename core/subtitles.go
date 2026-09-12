@@ -104,7 +104,7 @@ func downloadAndDecompressGzip(subURL string, client *http.Client) (string, erro
 		reader = gzReader
 	}
 
-	tempFile, err := os.CreateTemp("", "luffy-sub-*.srt")
+	tempFile, err := os.CreateTemp("", "pandaflix-sub-*.srt")
 	if err != nil {
 		return "", err
 	}

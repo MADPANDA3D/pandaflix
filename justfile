@@ -1,5 +1,5 @@
 # Project settings
-binary_name := "luffy"
+binary_name := "pandaflix"
 flags       := "-s -w"
 build_dir   := "builds"
 

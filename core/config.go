@@ -1,11 +1,79 @@
 package core
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
+
+// migrateOnce guards the one-time ingestion of legacy ~/.config/luffy data.
+var migrateOnce sync.Once
+
+// pandaflixConfigDir returns the pandaflix config directory, migrating any
+// legacy luffy data on first use: the old directory is moved into place when
+// possible, otherwise config.yaml and history.sqlite are copied over; either
+// way the old directory is deleted so pandaflix fully owns the new path.
+func pandaflixConfigDir(home string) string {
+	newDir := filepath.Join(home, ".config", "pandaflix")
+	oldDir := filepath.Join(home, ".config", "luffy")
+	migrateOnce.Do(func() {
+		if _, err := os.Stat(newDir); err == nil {
+			return // pandaflix already owns its directory
+		}
+		if info, err := os.Stat(oldDir); err != nil || !info.IsDir() {
+			return // nothing to ingest
+		}
+		if err := os.MkdirAll(filepath.Dir(newDir), 0700); err != nil {
+			return
+		}
+		if err := os.Rename(oldDir, newDir); err == nil {
+			return // whole directory ingested atomically
+		}
+		// Fallback copy (e.g. cross-device), then remove the old directory.
+		entries, err := os.ReadDir(oldDir)
+		if err != nil {
+			return
+		}
+		ok := true
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			src := filepath.Join(oldDir, entry.Name())
+			if !(entry.Name() == "config.yaml" || entry.Name() == "history.sqlite") {
+				continue
+			}
+			if err := copyFile(src, filepath.Join(newDir, entry.Name())); err != nil {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			os.RemoveAll(oldDir) //nolint:errcheck // ingest is best-effort
+		}
+	})
+	return newDir
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Sync()
+}
 
 // HooksConfig holds shell commands to run at specific playback lifecycle points.
 // Each hook is a shell command string (executed via sh -c on Unix, cmd /c on Windows).
@@ -59,7 +127,7 @@ func LoadConfig() *Config {
 		return config
 	}
 
-	configPath := filepath.Join(home, ".config", "luffy", "config.yaml")
+	configPath := filepath.Join(pandaflixConfigDir(home), "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		// Config file doesn't exist or can't be read, use defaults

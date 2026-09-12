@@ -1,8 +1,8 @@
-# AGENTS.md - LLM Agent Guidelines for Luffy
+# AGENTS.md - LLM Agent Guidelines for Pandaflix
 
 ## Project Overview
 
-**Luffy** is a CLI tool for streaming/downloading movies and TV shows from online providers. Written in Go 1.25.
+**Pandaflix** is a CLI tool for streaming/downloading movies and TV shows from online providers. Written in Go 1.25.
 
 **Key Features**: Search/stream from flixhq, sflix, braflix, movies4u, hdrezka, youtube. Interactive fzf selection. MPV/VLC/IINA support. yt-dlp downloads. Cross-platform (Linux, macOS, Windows, Android, FreeBSD).
 
@@ -46,12 +46,12 @@ golangci-lint run            # If golangci-lint is installed
 ## Architecture
 
 ```
-luffy/
+pandaflix/
 ├── cmd/root.go              # CLI entry point (cobra commands)
 ├── core/
 │   ├── provider.go          # Provider interface
 │   ├── types.go             # Core types (SearchResult, Season, Episode, Server)
-│   ├── config.go            # Config management (YAML at ~/.config/luffy/config.yaml)
+│   ├── config.go            # Config management (YAML at ~/.config/pandaflix/config.yaml)
 │   ├── decrypt.go           # M3U8 stream extraction (local decryption)
 │   ├── m3u8.go              # Quality selection from master m3u8 playlists
 │   ├── history.go           # SQLite watch history (OpenHistory, AddEntry, ListShows)
@@ -89,7 +89,7 @@ type Provider interface {
 
 ## Watch History (core/history.go)
 
-History is stored in a SQLite database at `~/.config/luffy/history.sqlite` using the CGO-free driver `modernc.org/sqlite`.
+History is stored in a SQLite database at `~/.config/pandaflix/history.sqlite` using the CGO-free driver `modernc.org/sqlite`.
 
 ### Schema
 
@@ -157,7 +157,7 @@ See `docs/hooks.md` for full details.
 
 ### Summary
 
-Luffy supports user-defined shell commands that run at three playback lifecycle points. Hooks are executed via `sh -c` on Unix and `cmd /c` on Windows, blocking until complete. Failures are printed but never abort playback — hooks are best-effort.
+Pandaflix supports user-defined shell commands that run at three playback lifecycle points. Hooks are executed via `sh -c` on Unix and `cmd /c` on Windows, blocking until complete. Failures are printed but never abort playback — hooks are best-effort.
 
 ### HookContext
 
@@ -210,7 +210,7 @@ mpv_args:
 
 hooks:
   on_play: 'notify-send "Now playing" "$LUFFY_TITLE"'
-  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/luffy.log'
+  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/pandaflix.log'
   on_download: 'notify-send "Downloading" "$LUFFY_TITLE"'
 ```
 
@@ -312,7 +312,7 @@ if strings.Contains(streamURL, ".m3u8") {
 ### Config Field
 
 ```yaml
-# ~/.config/luffy/config.yaml
+# ~/.config/pandaflix/config.yaml
 quality: best   # auto-select; omit or set to anything else to get fzf prompt
 ```
 
@@ -386,7 +386,7 @@ import (
     "github.com/PuerkitoBio/goquery"
     "github.com/spf13/cobra"
 
-    "github.com/demonkingswarn/luffy/core"
+    "github.com/MADPANDA3D/pandaflix/core"
 )
 ```
 
@@ -558,8 +558,8 @@ if strings.EqualFold(providerName, "sflix") || strings.EqualFold(providerName, "
 - **Handle edge cases** - Empty results, network errors
 - **Follow existing patterns** - Consistency across providers
 - **Default provider** is flixhq
-- **Config location**: `~/.config/luffy/config.yaml`
-- **History DB**: `~/.config/luffy/history.sqlite` — CGO-free (`modernc.org/sqlite`)
+- **Config location**: `~/.config/pandaflix/config.yaml`
+- **History DB**: `~/.config/pandaflix/history.sqlite` — CGO-free (`modernc.org/sqlite`)
 - **All decryption is local** - No external services used
 - **Quality default is fzf prompt** - `cfg.Quality` defaults to `""`, not `"best"`. Only `--best` flag or explicit `quality: best` in config bypasses the prompt
 - **Always pass Referer to GetQualities** - CDNs enforce Referer; missing it silently breaks quality selection
@@ -578,5 +578,5 @@ if strings.EqualFold(providerName, "sflix") || strings.EqualFold(providerName, "
 
 ## Resources
 
-- GitHub: https://github.com/demonkingswarn/luffy
+- GitHub: https://github.com/MADPANDA3D/pandaflix
 - Discord: https://discord.gg/JF85vTkDyC

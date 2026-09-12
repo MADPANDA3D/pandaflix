@@ -15,7 +15,7 @@ When `--show-image` is passed on the command line, poster preview is activated f
 
 All posters are downloaded concurrently using a `sync.WaitGroup`. Each poster is fetched with `core.DownloadPoster`, which:
 
-1. Resolves `~/.cache/luffy/` as the cache directory (creating it if absent).
+1. Resolves `~/.cache/pandaflix/` as the cache directory (creating it if absent).
 2. Sanitizes the title to a safe filename by replacing any non-alphanumeric character with `_`, then appending `.jpg`.
 3. Returns immediately if the file already exists (cache hit).
 4. Otherwise fetches the URL with a standard `http.Client` (using `core.NewRequest` to set the `User-Agent`) and writes the body to disk.
@@ -45,7 +45,7 @@ The `{}` placeholder is fzf syntax — fzf substitutes the currently highlighted
 
 ### 4. The `preview` Sub-command
 
-When fzf invokes `luffy preview --backend <backend> --cache <dir> "<title>"`, the hidden `preview` command:
+When fzf invokes `pandaflix preview --backend <backend> --cache <dir> "<title>"`, the hidden `preview` command:
 
 1. Strips the `[movie]` / `[series]` type prefix from the label using a regex (`^\[.*\] `).
 2. Sanitizes the remaining title with the same `[^a-zA-Z0-9]+` → `_` rule used by `DownloadPoster`.
@@ -69,7 +69,7 @@ Both `stdout` and `stderr` are connected to the terminal so chafa's output appea
 | `iterm`       | iTerm2 inline image protocol |
 | `symbols`     | Unicode block/braille characters (no graphics protocol needed) |
 
-The default backend is `sixel`. Override it in `~/.config/luffy/config.yaml`:
+The default backend is `sixel`. Override it in `~/.config/pandaflix/config.yaml`:
 
 ```yaml
 image_backend: kitty
@@ -83,7 +83,7 @@ After the fzf selection returns, `cmd/root.go` fires `core.CleanCache()` in a go
 go core.CleanCache()
 ```
 
-`CleanCache` opens `~/.cache/luffy/`, reads all entries with `Readdirnames(-1)`, and calls `os.RemoveAll` on each one, leaving the directory itself intact.
+`CleanCache` opens `~/.cache/pandaflix/`, reads all entries with `Readdirnames(-1)`, and calls `os.RemoveAll` on each one, leaving the directory itself intact.
 
 ## Key Types
 
@@ -92,7 +92,7 @@ This package does not define custom types. All functions operate on plain `strin
 ## Public API
 
 ```go
-// GetCacheDir returns ~/.cache/luffy/, creating it if it does not exist.
+// GetCacheDir returns ~/.cache/pandaflix/, creating it if it does not exist.
 func GetCacheDir() (string, error)
 
 // DownloadPoster fetches the image at url and saves it to the cache directory
@@ -100,7 +100,7 @@ func GetCacheDir() (string, error)
 // Does nothing and returns the existing path if the file is already cached.
 func DownloadPoster(url string, title string) (string, error)
 
-// CleanCache removes all files from ~/.cache/luffy/.
+// CleanCache removes all files from ~/.cache/pandaflix/.
 func CleanCache() error
 
 // PreviewPoster renders the image at path using the backend from the loaded
@@ -117,26 +117,26 @@ func PreviewWithBackend(path, backend string) error
 
 | Function | Purpose |
 |----------|---------|
-| `GetCacheDir` | Resolves and creates `~/.cache/luffy/` |
+| `GetCacheDir` | Resolves and creates `~/.cache/pandaflix/` |
 
 ## End-to-End Flow Diagram
 
 ```
-luffy "title" --show-image
+pandaflix "title" --show-image
         │
         ▼
 provider.Search()  →  []SearchResult{Poster: "https://..."}
         │
         ▼  (parallel goroutines)
-DownloadPoster(url, title)  →  ~/.cache/luffy/<safeTitle>.jpg
+DownloadPoster(url, title)  →  ~/.cache/pandaflix/<safeTitle>.jpg
         │
         ▼
-core.SelectWithPreview("Results:", labels, "luffy preview --backend sixel --cache ~/.cache/luffy {}")
+core.SelectWithPreview("Results:", labels, "pandaflix preview --backend sixel --cache ~/.cache/pandaflix {}")
         │                                          │
         │   fzf highlights an item                 │
         │ ─────────────────────────────────────►  │
         │                                          ▼
-        │                              luffy preview --backend sixel
+        │                              pandaflix preview --backend sixel
         │                                    --cache <dir> "[movie] Title"
         │                                          │
         │                                          ▼

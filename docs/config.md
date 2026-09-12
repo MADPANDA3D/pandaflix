@@ -9,7 +9,7 @@
 The config file is read from:
 
 ```
-~/.config/luffy/config.yaml
+~/.config/pandaflix/config.yaml
 ```
 
 If the file does not exist, cannot be read, or contains invalid YAML, `LoadConfig` silently returns a struct populated with default values. No error is surfaced to the user.
@@ -47,7 +47,7 @@ mpv_args:
 
 hooks:
   on_play: 'notify-send "Now playing" "$LUFFY_TITLE"'
-  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/luffy.log'
+  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/pandaflix.log'
   on_download: 'notify-send "Downloading" "$LUFFY_TITLE"'
 ```
 
@@ -119,7 +119,7 @@ type Config struct {
 ## Public API
 
 ```go
-// LoadConfig reads ~/.config/luffy/config.yaml and returns a *Config.
+// LoadConfig reads ~/.config/pandaflix/config.yaml and returns a *Config.
 // Returns a defaults-only Config if the file is missing or unreadable.
 // Never returns nil.
 func LoadConfig() *Config

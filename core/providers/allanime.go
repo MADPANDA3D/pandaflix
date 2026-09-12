@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/demonkingswarn/luffy/core"
+	"github.com/MADPANDA3D/pandaflix/core"
 )
 
 const (

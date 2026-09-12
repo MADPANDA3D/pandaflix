@@ -1,5 +1,5 @@
 <h1 align='center'>
-    LUFFY
+    PANDAFLIX
 </h1>
 
 <br>
@@ -60,33 +60,33 @@
 - [Providers](#providers)
 
  > [!NOTE]
- > Before creating an issue, make sure to update luffy
+ > Before creating an issue, make sure to update pandaflix
 
 ## Installation
 
 ### 1. Arch Linux
 
 ```sh
-paru -S luffy-bin
+paru -S pandaflix-bin
 ```
 
 ### 2. NixOS / Nix / MacOS
 
 #### Run without installing
 ```bash
-nix run github:DemonKingSwarn/luffy
+nix run github:DemonKingSwarn/pandaflix
 ```
 
 #### Install into profile
 ```bash
-nix profile install github:DemonKingSwarn/luffy
+nix profile install github:DemonKingSwarn/pandaflix
 ```
 
 #### NixOS flake input
 ```nix
-inputs.luffy.url = "github:DemonKingSwarn/luffy";
+inputs.pandaflix.url = "github:DemonKingSwarn/pandaflix";
 
-environment.systemPackages = [ inputs.luffy.packages.${system}.luffy ];
+environment.systemPackages = [ inputs.pandaflix.packages.${system}.pandaflix ];
 ```
 
 ### 3. Debian-based or Ubuntu-based
@@ -98,7 +98,7 @@ echo "deb [arch=amd64] https://demonkingswarn.is-a.dev/debmon-repo stable main" 
 
 sudo apt update
 
-sudo apt install -y luffy
+sudo apt install -y pandaflix
 ```
 
 ### 4. Fedora
@@ -113,7 +113,7 @@ gpgkey=https://demonkingswarn.is-a.dev/fedmon-repo/pubkey.gpg' | sudo tee /etc/y
 
 sudo dnf update
 
-sudo dnf install -y luffy
+sudo dnf install -y pandaflix
 ```
 
 ### 5. MacOS
@@ -121,7 +121,7 @@ sudo dnf install -y luffy
 ```sh
 brew tap gamedevCloudy/tools
 brew install --cask iina
-brew install luffy
+brew install pandaflix
 ```
 
 ### 6. Windows
@@ -131,7 +131,7 @@ Make sure you have [scoop.sh](https://scoop.sh) installed on your system.
 ```sh
 scoop bucket add demon-apps https://github.com/DemonKingSwarn/flix-cli-bucket.git
 scoop bucket add extras
-scoop install luffy
+scoop install pandaflix
 ```
 
 > [!IMPORTANT]
@@ -139,18 +139,18 @@ scoop install luffy
 
 ### 7. Go Install
 
-If you have Go installed, you can easily install Luffy:
+If you have Go installed, you can easily install Pandaflix:
 
 ```bash
-go install github.com/demonkingswarn/luffy@latest
+go install github.com/MADPANDA3D/pandaflix@latest
 ```
 
 ### 8. Build from Source
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/demonkingswarn/luffy.git
-    cd luffy
+    git clone https://github.com/MADPANDA3D/pandaflix.git
+    cd pandaflix
     ```
 
 2.  Build and install:
@@ -166,8 +166,8 @@ Install termux [(Guide)](https://termux.com/)
 ```sh
 pkg up -y
 pkg in fzf python-yt-dlp
-curl -sL "https://github.com/DemonKingSwarn/luffy/releases/download/v1.2.1/luffy-android-arm64" -o $PREFIX/bin/luffy
-chmod +x $PREFIX/bin/luffy
+curl -sL "https://github.com/DemonKingSwarn/pandaflix/releases/download/v1.2.1/pandaflix-android-arm64" -o $PREFIX/bin/pandaflix
+chmod +x $PREFIX/bin/pandaflix
 ```
 
 
@@ -184,7 +184,7 @@ chmod +x $PREFIX/bin/luffy
 ## Usage
 
 ```bash
-luffy [query] [flags]
+pandaflix [query] [flags]
 ```
 
 `[query]` is the title you want to search for (e.g., "breaking bad", "dune", "one piece"). The query is optional when using `--history` or `--recommend`.
@@ -219,52 +219,52 @@ When watching a TV series, an fzf menu appears alongside the player with four op
 
 **Search & Play a Movie**
 ```bash
-luffy "dune"
+pandaflix "dune"
 ```
 
 **Download a Movie**
 ```bash
-luffy "dune" --action download
+pandaflix "dune" --action download
 ```
 
 **Play a TV Episode**
 ```bash
-luffy "breaking bad" -s 1 -e 1
+pandaflix "breaking bad" -s 1 -e 1
 ```
 
 **Download a Range of Episodes**
 ```bash
-luffy "stranger things" -s 2 -e 1-5 -a download
+pandaflix "stranger things" -s 2 -e 1-5 -a download
 ```
 
 **Auto-select Best Quality**
 ```bash
-luffy "dune" --best
+pandaflix "dune" --best
 ```
 
 **Use a Different Provider**
 ```bash
-luffy "breaking bad" --provider sflix
+pandaflix "breaking bad" --provider sflix
 ```
 
 **Resume from Watch History**
 ```bash
-luffy --history
+pandaflix --history
 ```
 
 **Get Personalised Recommendations**
 ```bash
-luffy --recommend
+pandaflix --recommend
 ```
 
 **Recommendations with Poster Previews**
 ```bash
-luffy --recommend --show-image
+pandaflix --recommend --show-image
 ```
 
 ## Configuration
 
-The config file lives at `~/.config/luffy/config.yaml`. All fields are optional; defaults are shown below.
+The config file lives at `~/.config/pandaflix/config.yaml`. All fields are optional; defaults are shown below.
 
 ```yaml
 # Path to the fzf binary. Set to an absolute path if fzf is not on PATH.
@@ -298,7 +298,7 @@ quality: ""
 # are set in the environment for every hook.
 # hooks:
 #   on_play: 'notify-send "Now playing" "$LUFFY_TITLE"'
-#   on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/luffy.log'
+#   on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/pandaflix.log'
 #   on_download: 'notify-send "Downloading" "$LUFFY_TITLE"'
 ```
 
@@ -327,7 +327,7 @@ mpv_args:
 ```yaml
 hooks:
   on_play: 'notify-send "Now playing" "$LUFFY_TITLE"'
-  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/luffy.log'
+  on_exit: 'echo "$LUFFY_TITLE stopped at ${LUFFY_POSITION}s" >> ~/pandaflix.log'
   on_download: 'notify-send "Downloading" "$LUFFY_TITLE"'
 ```
 
@@ -335,7 +335,7 @@ Every hook receives `LUFFY_TITLE`, `LUFFY_URL`, `LUFFY_SEASON`, `LUFFY_EPISODE`,
 
 # Providers
 
-You can set the default provider in the config file (`~/.config/luffy/config.yaml`) or override it per-run with `--provider`.
+You can set the default provider in the config file (`~/.config/pandaflix/config.yaml`) or override it per-run with `--provider`.
 
 | Provider | `provider:` value | Content | Notes |
 |----------|-------------------|---------|-------|
@@ -355,7 +355,7 @@ provider: cinejoy
 Run any command with `--debug` (`-d`) to print detailed information:
 
 ```bash
-luffy "breaking bad" -s 1 -e 1 --debug
+pandaflix "breaking bad" -s 1 -e 1 --debug
 ```
 
 Debug output includes:
@@ -373,9 +373,9 @@ If playback fails, the debug output is almost always enough to diagnose the prob
 
 Please try these steps first:
 
-1. **Update luffy** — most issues are already fixed in the latest version.
+1. **Update pandaflix** — most issues are already fixed in the latest version.
    ```bash
-   go install github.com/demonkingswarn/luffy@latest
+   go install github.com/MADPANDA3D/pandaflix@latest
    ```
 
 2. **Run with `--debug`** and read the output — it usually tells you exactly what failed.
@@ -387,5 +387,5 @@ Please try these steps first:
 If none of the above helps, open an issue and include:
 - The exact command you ran
 - The full `--debug` output
-- Your OS and luffy version (`luffy --version` if available, or `git log -1 --oneline`)
+- Your OS and pandaflix version (`pandaflix --version` if available, or `git log -1 --oneline`)
 - Whether the issue is with a movie or TV show, and the title

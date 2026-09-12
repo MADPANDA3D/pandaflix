@@ -1,5 +1,5 @@
 {
-  description = "luffy - terminal movie/TV streamer";
+  description = "pandaflix - terminal movie/TV streamer";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -16,10 +16,10 @@
           version = "1.2.1";
 
           binaryName = {
-            "x86_64-linux"  = "luffy-linux-amd64";
-            "aarch64-linux" = "luffy-linux-arm64";
-            "x86_64-darwin" = "luffy-darwin-amd64";
-            "aarch64-darwin" = "luffy-darwin-arm64";
+            "x86_64-linux"  = "pandaflix-linux-amd64";
+            "aarch64-linux" = "pandaflix-linux-arm64";
+            "x86_64-darwin" = "pandaflix-darwin-amd64";
+            "aarch64-darwin" = "pandaflix-darwin-arm64";
           }.${system};
 
           sha256 = {
@@ -31,12 +31,12 @@
 
         in
         {
-          luffy = pkgs.stdenvNoCC.mkDerivation {
-            pname = "luffy";
+          pandaflix = pkgs.stdenvNoCC.mkDerivation {
+            pname = "pandaflix";
             inherit version;
 
             src = pkgs.fetchurl {
-              url = "https://github.com/DemonKingSwarn/luffy/releases/download/v${version}/${binaryName}";
+              url = "https://github.com/DemonKingSwarn/pandaflix/releases/download/v${version}/${binaryName}";
               inherit sha256;
             };
 
@@ -45,36 +45,36 @@
 
             nativeBuildInputs = [ pkgs.makeWrapper ];
 
-            # runtime deps luffy needs
+            # runtime deps pandaflix needs
             propagatedBuildInputs = with pkgs; [ mpv fzf yt-dlp ffmpeg chafa ];
 
             installPhase = ''
-              install -Dm755 $src $out/bin/luffy
+              install -Dm755 $src $out/bin/pandaflix
             '';
 
             postFixup = ''
-              wrapProgram $out/bin/luffy \
+              wrapProgram $out/bin/pandaflix \
                 --prefix PATH : ${pkgs.lib.makeBinPath (with pkgs; [ mpv fzf yt-dlp ffmpeg chafa ])}
             '';
 
             meta = with pkgs.lib; {
               description = "Spiritual successor of flix-cli and mov-cli";
-              homepage    = "https://github.com/DemonKingSwarn/luffy";
+              homepage    = "https://github.com/DemonKingSwarn/pandaflix";
               license     = licenses.gpl3Only;
               maintainers = [ ];
               platforms   = with platforms; linux ++ darwin;
-              mainProgram = "luffy";
+              mainProgram = "pandaflix";
             };
           };
 
-          default = self.packages.${system}.luffy;
+          default = self.packages.${system}.pandaflix;
         }
       );
 
       apps = forAllSystems (system: {
         default = {
           type    = "app";
-          program = "${self.packages.${system}.luffy}/bin/luffy";
+          program = "${self.packages.${system}.pandaflix}/bin/pandaflix";
         };
       });
     };

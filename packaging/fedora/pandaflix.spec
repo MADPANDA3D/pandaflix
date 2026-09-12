@@ -1,11 +1,11 @@
-Name:           luffy
+Name:           pandaflix
 Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Watch movies and series from the terminal
 %global debug_package %{nil}
 
 License:        GPL-3.0-or-later
-URL:            https://github.com/demonkingswarn/luffy
+URL:            https://github.com/MADPANDA3D/pandaflix
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires:  golang
@@ -18,7 +18,7 @@ Requires:       mpv
 Requires:       yt-dlp
 
 %description
-Luffy is a terminal UI for searching, streaming, and downloading movies and
+Pandaflix is a terminal UI for searching, streaming, and downloading movies and
 TV shows from multiple providers.
 
 %prep

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PKG="luffy"
+PKG="pandaflix"
 VERSION="${VERSION:-1.2.0}"
 RELEASE="${RELEASE:-1}"
 
 mkdir -p packaging/fedora
 
-cat > packaging/fedora/luffy.spec <<EOF
+cat > packaging/fedora/pandaflix.spec <<EOF
 Name:           ${PKG}
 Version:        ${VERSION}
 Release:        ${RELEASE}%{?dist}
@@ -15,7 +15,7 @@ Summary:        Watch movies and series from the terminal
 %global debug_package %{nil}
 
 License:        GPL-3.0-or-later
-URL:            https://github.com/demonkingswarn/luffy
+URL:            https://github.com/MADPANDA3D/pandaflix
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
 Requires:       chafa
@@ -26,7 +26,7 @@ Requires:       mpv
 Requires:       yt-dlp
 
 %description
-Luffy is a terminal UI for searching, streaming, and downloading movies and
+Pandaflix is a terminal UI for searching, streaming, and downloading movies and
 TV shows from multiple providers.
 
 %prep
@@ -53,4 +53,4 @@ install -Dpm0755 %{name} %{buildroot}%{_bindir}/%{name}
 - Initial Fedora package
 EOF
 
-chmod 0644 packaging/fedora/luffy.spec
+chmod 0644 packaging/fedora/pandaflix.spec

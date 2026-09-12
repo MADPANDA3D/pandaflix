@@ -5,8 +5,8 @@
 ## Command Structure
 
 ```
-luffy [query]            # main command — search, stream, or download
-luffy preview [title]    # hidden sub-command used by fzf preview integration
+pandaflix [query]            # main command — search, stream, or download
+pandaflix preview [title]    # hidden sub-command used by fzf preview integration
 ```
 
 ## Flags
@@ -171,7 +171,7 @@ The series playback loop. Calls `getLinkForEpisode → resolveStreamURL → core
 ## The `preview` Sub-command
 
 ```
-luffy preview [title] --backend <fmt> --cache <dir>
+pandaflix preview [title] --backend <fmt> --cache <dir>
 ```
 
 Hidden from help output. Invoked exclusively by the fzf preview command string built in `cmd/root.go`. Strips the `[movie]`/`[series]` prefix, sanitizes the title, constructs the cache path, and calls `core.PreviewWithBackend`. See `docs/image.md` for full details.
@@ -181,7 +181,7 @@ Hidden from help output. Invoked exclusively by the fzf preview command string b
 Provider is selected in this priority order:
 
 1. `--provider` flag
-2. `provider` field in `~/.config/luffy/config.yaml`
+2. `provider` field in `~/.config/pandaflix/config.yaml`
 3. Default: FlixHQ
 
 ```go

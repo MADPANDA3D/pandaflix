@@ -159,7 +159,7 @@ func buildPlayerCmd(url, title, referer, userAgent, origin string, subtitles []s
 				args = append(args, fmt.Sprintf("--start=%s", strconv.FormatFloat(startSecs, 'f', 3, 64)))
 			}
 			if debug && runtime.GOOS == "windows" {
-				args = append(args, "--force-window=immediate", fmt.Sprintf("--log-file=%s", filepath.Join(os.TempDir(), "luffy-mpv.log")))
+				args = append(args, "--force-window=immediate", fmt.Sprintf("--log-file=%s", filepath.Join(os.TempDir(), "pandaflix-mpv.log")))
 			}
 			// Append extra user-configured mpv args.
 			args = append(args, cfg.MpvArgs...)
@@ -221,7 +221,7 @@ func buildPlayerCmd(url, title, referer, userAgent, origin string, subtitles []s
 				args = append(args, fmt.Sprintf("--start=%s", strconv.FormatFloat(startSecs, 'f', 3, 64)))
 			}
 			if debug && runtime.GOOS == "windows" {
-				args = append(args, "--force-window=immediate", fmt.Sprintf("--log-file=%s", filepath.Join(os.TempDir(), "luffy-mpv.log")))
+				args = append(args, "--force-window=immediate", fmt.Sprintf("--log-file=%s", filepath.Join(os.TempDir(), "pandaflix-mpv.log")))
 			}
 			// Append extra user-configured mpv args.
 			args = append(args, cfg.MpvArgs...)
@@ -391,7 +391,7 @@ func StartPlayer(url, title, referer, userAgent, origin string, subtitles []stri
 		fmt.Printf("Player headers: Referer=%s | User-Agent=%s\n", referer, userAgent)
 		fmt.Println(debugValueSummary("Player URL", url))
 		if runtime.GOOS == "windows" {
-			fmt.Printf("MPV log file: %s\n", filepath.Join(os.TempDir(), "luffy-mpv.log"))
+			fmt.Printf("MPV log file: %s\n", filepath.Join(os.TempDir(), "pandaflix-mpv.log"))
 		}
 		fmt.Printf("Player command: %s\n", formatCommand(cmd))
 	} else {

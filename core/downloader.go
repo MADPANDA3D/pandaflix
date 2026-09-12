@@ -24,9 +24,9 @@ import (
 // Subtitle files (VTT/SRT) are downloaded alongside the video when provided.
 func Download(basePath, dlPath, name, url, referer, userAgent string, subtitles []string, debug bool) error {
 	if dlPath == "" {
-		dlPath = filepath.Join(basePath, "Downloads", "luffy")
+		dlPath = filepath.Join(basePath, "Downloads", "pandaflix")
 	} else {
-		dlPath = filepath.Join(dlPath, "luffy")
+		dlPath = filepath.Join(dlPath, "pandaflix")
 	}
 	if err := os.MkdirAll(dlPath, 0755); err != nil {
 		return fmt.Errorf("failed to create download directory: %w", err)

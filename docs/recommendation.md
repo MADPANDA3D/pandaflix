@@ -6,7 +6,7 @@ Luffy's recommendation engine (`core/recommend.go`) builds a personalised list o
 
 ### 1. Load Watch History
 
-The engine reads every unique title from the history database (`~/.config/luffy/history.sqlite`). Each entry carries a `WatchedAt` timestamp used in the next step.
+The engine reads every unique title from the history database (`~/.config/pandaflix/history.sqlite`). Each entry carries a `WatchedAt` timestamp used in the next step.
 
 ### 2. Recency Weighting
 

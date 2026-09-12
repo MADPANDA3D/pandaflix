@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/demonkingswarn/luffy/core"
+	"github.com/MADPANDA3D/pandaflix/core"
 )
 
 const (
