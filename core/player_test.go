@@ -45,8 +45,14 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 			t.Run(entry+"/"+launch, func(t *testing.T) {
 				player := filepath.Join(bin, "mpv")
 				if launch == "success" {
-					// Capture forwarding and leave an IPC fixture for the owner to clean.
-					script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$LUFFY_TEST_ARGS\"\nfor arg do\n case $arg in --input-ipc-server=*) : > \"${arg#--input-ipc-server=}\";; esac\ndone\n"
+					// Capture forwarding, leave an IPC fixture for the owner to
+					// clean, and stay alive so PlayWithControls treats the
+					// player as started before showing its control menu. The
+					// isolated PATH needs a sleep stub for the script.
+					if err := os.WriteFile(filepath.Join(bin, "sleep"), []byte("#!/bin/sh\nexec /usr/bin/sleep \"$@\"\n"), 0700); err != nil {
+						t.Fatal(err)
+					}
+					script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$LUFFY_TEST_ARGS\"\nfor arg do\n case $arg in --input-ipc-server=*) : > \"${arg#--input-ipc-server=}\";; esac\ndone\nsleep 5\n"
 					if err := os.WriteFile(player, []byte(script), 0700); err != nil {
 						t.Fatal(err)
 					}
