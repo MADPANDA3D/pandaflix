@@ -287,6 +287,10 @@ dl_path: ""
 # to always auto-select the highest available quality.
 quality: ""
 
+# Hide the terminal window while the player is open and restore it when
+# playback ends (Hyprland via hyprctl, other Linux via xdotool).
+minimize_on_play: true
+
 # Extra arguments appended to every mpv invocation (ignored on VLC/IINA/Android).
 # mpv_args:
 #   - "--hwdec=auto"

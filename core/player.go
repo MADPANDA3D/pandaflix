@@ -314,6 +314,13 @@ func Play(url, title, referer, userAgent, origin string, subtitles []string, deb
 
 	fmt.Printf("Starting player for %s...\n", title)
 
+	// Capture the terminal window (while still focused) so it can be tucked
+	// away during playback and restored afterwards.
+	win := windowRef{}
+	if cfg.MinimizeOnPlay {
+		win = captureTerminalWindow()
+	}
+
 	if err := cmd.Start(); err != nil {
 		return 0, fmt.Errorf("failed to start player: %w", err)
 	}
@@ -346,8 +353,10 @@ func Play(url, title, referer, userAgent, origin string, subtitles []string, deb
 					}
 				}
 			}()
+			hideTerminal(win)
 			cmd.Wait() //nolint:errcheck
 			close(stop)
+			showTerminal(win)
 			// One final read after mpv exits.
 			if pos := readPositionViaIPC(client); pos > 0 {
 				mu.Lock()
@@ -363,7 +372,9 @@ func Play(url, title, referer, userAgent, origin string, subtitles []string, deb
 		}
 	}
 
+	hideTerminal(win)
 	cmd.Wait() //nolint:errcheck
+	showTerminal(win)
 	RunHook(cfg.Hooks.OnExit, hctx, debug)
 	return 0, nil
 }
@@ -435,6 +446,136 @@ type PlayResult struct {
 func PlayWithControls(url, title, referer, userAgent, origin string, subtitles []string, debug bool, startSecs float64, hctx HookContext) (PlayResult, error) {
 	cfg := LoadConfig()
 
+	if !cfg.MinimizeOnPlay {
+		return playWithControlsVisible(url, title, referer, userAgent, origin, subtitles, debug, startSecs, hctx, cfg)
+	}
+
+	// Minimize-on-play flow: capture the terminal once (while focused), tuck
+	// it away for the whole playback, restore it when the player closes, and
+	// only then show the control menu.
+	win := captureTerminalWindow()
+
+	for {
+		fmt.Printf("Starting player for %s...\n", title)
+
+		hctx.StreamURL = url
+		hctx.Action = "play"
+		RunHook(cfg.Hooks.OnPlay, hctx, debug)
+
+		socketPath := ""
+		if isMPV() {
+			var err error
+			socketPath, err = generateSocketPath()
+			if err != nil && debug {
+				fmt.Printf("Warning: could not generate IPC socket path: %v\n", err)
+			}
+		}
+
+		cmd, err := StartPlayer(url, title, referer, userAgent, origin, subtitles, debug, socketPath, startSecs, cfg)
+		if err != nil {
+			if socketPath != "" {
+				os.Remove(socketPath)
+			}
+			return PlayResult{Action: PlaybackQuit}, err
+		}
+
+		// Hide the terminal for the duration of playback.
+		hideTerminal(win)
+		playerStart := time.Now()
+
+		var ipcClient *gopv.Client
+		var posMu sync.Mutex
+		var lastPos float64
+		var ipcStop chan struct{}
+		if socketPath != "" {
+			ipcClient = connectMPVIPC(socketPath)
+			if ipcClient != nil {
+				ipcStop = make(chan struct{})
+				go func() {
+					ticker := time.NewTicker(time.Second)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-ipcStop:
+							return
+						case <-ticker.C:
+							pos := readPositionViaIPC(ipcClient)
+							if pos > 0 {
+								posMu.Lock()
+								lastPos = pos
+								posMu.Unlock()
+							}
+						}
+					}
+				}()
+			}
+		}
+
+		done := make(chan struct{})
+		go func() {
+			err := cmd.Wait()
+			if err != nil && debug {
+				fmt.Printf("\nPlayer exited with error: %v\n", err)
+			}
+			close(done)
+		}()
+
+		// Wait for the movie to finish/close; the terminal stays tucked away.
+		<-done
+
+		if time.Since(playerStart) < 1500*time.Millisecond {
+			showTerminal(win)
+			return PlayResult{Action: PlaybackQuit}, fmt.Errorf("player exited immediately after launch (check the player and stream)")
+		}
+
+		// The player closed: bring the controls terminal back, then offer the menu.
+		showTerminal(win)
+
+		var finalSecs float64
+		if ipcClient != nil {
+			close(ipcStop)
+			if pos := readPositionViaIPC(ipcClient); pos > 0 {
+				posMu.Lock()
+				lastPos = pos
+				posMu.Unlock()
+			}
+			func() {
+				defer func() { recover() }()
+				ipcClient.Close()
+			}()
+		}
+		if socketPath != "" {
+			posMu.Lock()
+			finalSecs = lastPos
+			posMu.Unlock()
+			os.Remove(socketPath)
+		}
+
+		hctx.Position = finalSecs
+		RunHook(cfg.Hooks.OnExit, hctx, debug)
+
+		chosen := SelectActionCtx("Playback:", []string{
+			string(PlaybackNext),
+			string(PlaybackPrevious),
+			string(PlaybackReplay),
+			string(PlaybackQuit),
+		}, nil)
+
+		if chosen == "" || chosen == string(PlaybackQuit) {
+			return PlayResult{Action: PlaybackQuit, PositionSecs: finalSecs}, nil
+		}
+		if chosen == string(PlaybackReplay) {
+			startSecs = 0
+			continue
+		}
+		return PlayResult{Action: PlaybackAction(chosen), PositionSecs: finalSecs}, nil
+	}
+}
+
+// playWithControlsVisible is the original PlayWithControls flow used when
+// minimize-on-play is disabled: the terminal stays visible and the control
+// menu appears shortly after the player launches.
+func playWithControlsVisible(url, title, referer, userAgent, origin string, subtitles []string, debug bool, startSecs float64, hctx HookContext, cfg *Config) (PlayResult, error) {
 	for {
 		fmt.Printf("Starting player for %s...\n", title)
 

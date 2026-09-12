@@ -104,22 +104,26 @@ type Config struct {
 	Provider     string `yaml:"provider"`
 	DlPath       string `yaml:"dl_path"`
 	Quality      string `yaml:"quality"`
+	// MinimizeOnPlay hides the terminal window while the player is open and
+	// restores it when playback ends (Hyprland via hyprctl, else xdotool).
+	MinimizeOnPlay bool `yaml:"minimize_on_play"`
 	// MpvArgs holds extra command-line arguments appended to every mpv invocation.
 	// Example: ["--hwdec=auto", "--volume=80"]
 	MpvArgs []string    `yaml:"mpv_args"`
 	Hooks   HooksConfig `yaml:"hooks"`
-	YtLang string `yaml:"yt_language"`
+	YtLang  string      `yaml:"yt_language"`
 }
 
 func LoadConfig() *Config {
 	config := &Config{
-		FzfPath:      "fzf",    // Default
-		Player:       "mpv",    // Default player
-		ImageBackend: "sixel",  // Default image backend
-		Provider:     "flixhq", // Default provider
-		DlPath:       "",       // Default: use home directory
-		Quality:      "",       // Default: prompt user to select quality
-		YtLang: "", // Default: let youtube decide
+		FzfPath:        "fzf",    // Default
+		Player:         "mpv",    // Default player
+		ImageBackend:   "sixel",  // Default image backend
+		Provider:       "flixhq", // Default provider
+		DlPath:         "",       // Default: use home directory
+		Quality:        "",       // Default: prompt user to select quality
+		MinimizeOnPlay: true,     // Default: hide terminal while the player is open
+		YtLang:         "",       // Default: let youtube decide
 	}
 
 	home, err := os.UserHomeDir()
@@ -138,13 +142,14 @@ func LoadConfig() *Config {
 	err = yaml.Unmarshal(data, config)
 	if err != nil {
 		return &Config{
-			FzfPath:      "fzf",
-			Player:       "mpv",
-			ImageBackend: "sixel",
-			Provider:     "flixhq",
-			DlPath:       "",
-			Quality:      "",
-			YtLang: "",
+			FzfPath:        "fzf",
+			Player:         "mpv",
+			ImageBackend:   "sixel",
+			Provider:       "flixhq",
+			DlPath:         "",
+			Quality:        "",
+			MinimizeOnPlay: true,
+			YtLang:         "",
 		}
 	}
 
