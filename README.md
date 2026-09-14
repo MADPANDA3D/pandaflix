@@ -64,7 +64,15 @@
 
 ## Installation
 
-### 1. Prebuilt binaries (recommended)
+### 1. One-command install (Linux, macOS, Alpine, iSH)
+
+```sh
+wget -qO- https://raw.githubusercontent.com/MADPANDA3D/pandaflix/master/scripts/install.sh | sh
+```
+
+On Alpine (including iSH) this also installs the runtime dependencies (`mpv`, `ffmpeg`, `fzf`, `chafa`) via `apk`. Use `curl -fsSL ... | sh` instead if you prefer curl.
+
+### 2. Prebuilt binaries
 
 Download the binary for your platform from the [latest release](https://github.com/MADPANDA3D/pandaflix/releases/latest):
 
@@ -83,13 +91,13 @@ chmod +x pandaflix_linux_amd64
 mv pandaflix_linux_amd64 ~/.local/bin/pandaflix
 ```
 
-### 2. Go install
+### 3. Go install
 
 ```bash
 go install github.com/MADPANDA3D/pandaflix@latest
 ```
 
-### 3. Build from source
+### 4. Build from source
 
 ```bash
 git clone https://github.com/MADPANDA3D/pandaflix.git
