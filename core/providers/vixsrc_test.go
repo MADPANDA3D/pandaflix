@@ -104,6 +104,43 @@ https://vixsrc.to/playlist/1?type=video&rendition=1080p&token=b
 	}
 }
 
+func TestSelectEnglishSubtitleRendition(t *testing.T) {
+	master := `#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English [CC]",LANGUAGE="eng",URI="sub-eng.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Danish",LANGUAGE="dan",URI="sub-dan.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=1,SUBTITLES="subs"
+v.m3u8`
+	if got := selectEnglishSubtitleRendition(master); got != "sub-eng.m3u8" {
+		t.Fatalf("english subtitle not selected: %q", got)
+	}
+
+	noEnglish := `#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Danish",LANGUAGE="dan",URI="sub-dan.m3u8"`
+	if got := selectEnglishSubtitleRendition(noEnglish); got != "sub-dan.m3u8" {
+		t.Fatalf("fallback subtitle not selected: %q", got)
+	}
+
+	none := `#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="eng",URI="a.m3u8"`
+	if got := selectEnglishSubtitleRendition(none); got != "" {
+		t.Fatalf("expected no subtitle, got %q", got)
+	}
+}
+
+func TestFirstPlaylistURI(t *testing.T) {
+	body := "#EXTM3U\n#EXT-X-TARGETDURATION:6830\n#EXTINF:6829.0,\nhttps://cdn.example/subs-0000.vtt?token=x\n#EXT-X-ENDLIST"
+	if got := firstPlaylistURI(body, "https://vixsrc.to/playlist/1"); got != "https://cdn.example/subs-0000.vtt?token=x" {
+		t.Fatalf("absolute URI not extracted: %q", got)
+	}
+	rel := "#EXTM3U\n#EXTINF:10,\n/subs/x.vtt\n"
+	if got := firstPlaylistURI(rel, "https://vixsrc.to/playlist/1"); got != "https://vixsrc.to/subs/x.vtt" {
+		t.Fatalf("root-relative URI not resolved: %q", got)
+	}
+	if got := firstPlaylistURI("#EXTM3U\n#EXT-X-ENDLIST\n", "https://vixsrc.to/playlist/1"); got != "" {
+		t.Fatalf("expected empty, got %q", got)
+	}
+}
+
 func TestVixSrcFetchURLGuards(t *testing.T) {
 	client := &http.Client{}
 	for _, bad := range []string{

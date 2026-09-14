@@ -107,8 +107,14 @@ func (v *VixSrc) GetLink(serverID string) (string, error) {
 	}
 
 	master := vixsrcMasterURL(playlistURL, token, expires)
-	if err := vixsrcValidateMaster(ctx, v.Client, master); err != nil {
+	masterBody, err := vixsrcValidateMaster(ctx, v.Client, master)
+	if err != nil {
 		return "", err
+	}
+	// English closed captions are exposed as a VTT file behind an HLS stub;
+	// hand them to the CLI via the |subs= convention so mpv loads them.
+	if subsURL := v.vixsrcEnglishSubtitle(ctx, masterBody); subsURL != "" {
+		return master + "|subs=" + url.QueryEscape(subsURL), nil
 	}
 	return master, nil
 }
@@ -206,27 +212,123 @@ func vixsrcFirstVariant(master string) (string, error) {
 	return "", fmt.Errorf("vixsrc: no video variant found")
 }
 
+// vixsrcEnglishSubtitle resolves the English WebVTT subtitle for a master
+// playlist, if one is advertised. Returns "" when unavailable.
+func (v *VixSrc) vixsrcEnglishSubtitle(ctx context.Context, masterBody []byte) string {
+	rendition := selectEnglishSubtitleRendition(string(masterBody))
+	if rendition == "" {
+		return ""
+	}
+	body, err := vixsrcFetch(ctx, v.Client, rendition, 1<<20)
+	if err != nil {
+		return ""
+	}
+	return firstPlaylistURI(string(body), rendition)
+}
+
+// selectEnglishSubtitleRendition picks the English subtitle URI from a master
+// playlist's EXT-X-MEDIA entries.
+func selectEnglishSubtitleRendition(master string) string {
+	var fallback string
+	for _, line := range strings.Split(master, "\n") {
+		if !strings.HasPrefix(line, "#EXT-X-MEDIA:") {
+			continue
+		}
+		if !strings.EqualFold(vixsrcRawAttr(line, "TYPE"), "SUBTITLES") {
+			continue
+		}
+		uri := vixsrcQuotedAttr(line, "URI")
+		if uri == "" {
+			continue
+		}
+		lang := strings.ToLower(vixsrcQuotedAttr(line, "LANGUAGE"))
+		name := strings.ToLower(vixsrcQuotedAttr(line, "NAME"))
+		if lang == "eng" || lang == "en" || strings.Contains(name, "english") {
+			return uri
+		}
+		if fallback == "" {
+			fallback = uri
+		}
+	}
+	return fallback
+}
+
+// firstPlaylistURI returns the first non-tag URI in a playlist body. For
+// subtitle renditions this is the WebVTT file.
+func firstPlaylistURI(body, baseURL string) string {
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "http") {
+			return line
+		}
+		// Relative reference against the playlist origin.
+		if u, err := url.Parse(baseURL); err == nil && u.Host != "" {
+			if strings.HasPrefix(line, "/") {
+				return u.Scheme + "://" + u.Host + line
+			}
+			base := baseURL
+			if i := strings.LastIndex(base, "/"); i != -1 {
+				base = base[:i+1]
+			}
+			return base + line
+		}
+		return ""
+	}
+	return ""
+}
+
+// vixsrcQuotedAttr extracts a quoted attribute value (e.g. URI="x").
+func vixsrcQuotedAttr(line, name string) string {
+	needle := name + `="`
+	start := strings.Index(line, needle)
+	if start == -1 {
+		return ""
+	}
+	rest := line[start+len(needle):]
+	if end := strings.Index(rest, `"`); end != -1 {
+		return rest[:end]
+	}
+	return ""
+}
+
+// vixsrcRawAttr extracts an unquoted attribute value (e.g. TYPE=SUBTITLES).
+func vixsrcRawAttr(line, name string) string {
+	needle := name + "="
+	start := strings.Index(line, needle)
+	if start == -1 {
+		return ""
+	}
+	rest := line[start+len(needle):]
+	if end := strings.Index(rest, ","); end != -1 {
+		rest = rest[:end]
+	}
+	return strings.TrimSpace(rest)
+}
+
 // vixsrcValidateMaster fetches the master and its first variant playlist.
-func vixsrcValidateMaster(ctx context.Context, client *http.Client, masterURL string) error {
+func vixsrcValidateMaster(ctx context.Context, client *http.Client, masterURL string) ([]byte, error) {
 	body, err := vixsrcFetch(ctx, client, masterURL, 2<<20)
 	if err != nil {
-		return fmt.Errorf("vixsrc: master playlist: %w", err)
+		return nil, fmt.Errorf("vixsrc: master playlist: %w", err)
 	}
 	if !strings.HasPrefix(string(body), "#EXTM3U") {
-		return fmt.Errorf("vixsrc: master is not an HLS playlist")
+		return nil, fmt.Errorf("vixsrc: master is not an HLS playlist")
 	}
 	variant, err := vixsrcFirstVariant(string(body))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	variantBody, err := vixsrcFetch(ctx, client, variant, 2<<20)
 	if err != nil {
-		return fmt.Errorf("vixsrc: variant playlist: %w", err)
+		return nil, fmt.Errorf("vixsrc: variant playlist: %w", err)
 	}
 	if !strings.HasPrefix(string(variantBody), "#EXTM3U") {
-		return fmt.Errorf("vixsrc: variant is not an HLS playlist")
+		return nil, fmt.Errorf("vixsrc: variant is not an HLS playlist")
 	}
-	return nil
+	return body, nil
 }
 
 // vixsrcFetch is the hardened HTTP helper for VixSrc endpoints: HTTPS only,
