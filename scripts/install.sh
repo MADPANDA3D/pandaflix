@@ -82,7 +82,9 @@ if [ "$build_local" = "1" ]; then
 	say "Building from this checkout..."
 	(
 		cd "$(dirname "$0")/.."
-		GOMAXPROCS=${GOMAXPROCS:-1} GODEBUG=${GODEBUG:-asyncpreemptoff=1} CGO_ENABLED=0 go build -trimpath -o "$tmp" .
+		ver=$(git describe --tags --always --dirty 2>/dev/null || echo dev)
+		GOMAXPROCS=${GOMAXPROCS:-1} GODEBUG=${GODEBUG:-asyncpreemptoff=1} CGO_ENABLED=0 \
+			go build -trimpath -ldflags="-X github.com/MADPANDA3D/pandaflix/core.Version=${ver}" -o "$tmp" .
 	) || die "build failed"
 elif command -v curl >/dev/null 2>&1; then
 	say "Downloading $asset ..."
