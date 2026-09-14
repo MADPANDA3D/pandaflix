@@ -145,7 +145,7 @@ func vixsrcParseAPISrc(body []byte) (string, error) {
 }
 
 var (
-	vixsrcPlaylistRE = regexp.MustCompile(`url:\s*'(https://vixsrc\.to/playlist/[0-9]+)'`)
+	vixsrcPlaylistRE = regexp.MustCompile(`url:\s*'(https://vixsrc\.to/playlist/[0-9]+(?:\?[^']*)?)'`)
 	vixsrcTokenRE    = regexp.MustCompile(`'token':\s*'([^']+)'`)
 	vixsrcExpiresRE  = regexp.MustCompile(`'expires':\s*'([^']+)'`)
 )
@@ -160,15 +160,26 @@ func vixsrcParseMasterPlaylist(html []byte) (playlistURL, token, expires string,
 	return string(pMatch[1]), string(tMatch[1]), string(eMatch[1]), nil
 }
 
-// vixsrcMasterURL builds the playlist request URL. The h=1 flag is required;
-// without it the endpoint answers 403.
+// vixsrcMasterURL builds the playlist request URL, preserving any query the
+// embed already supplied (some titles carry a variant flag such as ?b=1). The
+// h=1 flag is required; without it the endpoint answers 403.
 func vixsrcMasterURL(playlistURL, token, expires string) string {
 	params := url.Values{}
 	params.Set("token", token)
 	params.Set("expires", expires)
 	params.Set("asn", "")
 	params.Set("h", "1")
-	return playlistURL + "?" + params.Encode()
+
+	u, err := url.Parse(playlistURL)
+	if err != nil {
+		return playlistURL + "?" + params.Encode()
+	}
+	q := u.Query()
+	for key, values := range params {
+		q[key] = values
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // vixsrcFirstVariant returns the first video variant URI in an HLS master.
