@@ -13,6 +13,17 @@ set -eu
 REPO="MADPANDA3D/pandaflix"
 BIN="pandaflix"
 
+build_local=0
+case "${1:-}" in
+	--build) build_local=1 ;;
+	-h | --help)
+		printf 'usage: %s [--build]\n\n  (no args)  install runtime deps + latest release binary\n  --build    build this checkout instead of downloading\n' "$0"
+		exit 0
+		;;
+	"") ;;
+	*) printf 'error: unknown argument: %s\n' "$1" >&2; exit 2 ;;
+esac
+
 say() { printf '%s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -65,14 +76,23 @@ url="https://github.com/${REPO}/releases/latest/download/${asset}"
 tmp="${TMPDIR:-/tmp}/.${BIN}.download.$$"
 trap 'rm -f "$tmp"' EXIT INT TERM
 
-say "Downloading $asset ..."
-if command -v curl >/dev/null 2>&1; then
+say "Installing $BIN for ${os}/${arch} ..."
+if [ "$build_local" = "1" ]; then
+	command -v go >/dev/null 2>&1 || die "--build requires Go (install it with: apk add go, or use the release binary)"
+	say "Building from this checkout..."
+	(
+		cd "$(dirname "$0")/.."
+		GOMAXPROCS=${GOMAXPROCS:-1} GODEBUG=${GODEBUG:-asyncpreemptoff=1} CGO_ENABLED=0 go build -trimpath -o "$tmp" .
+	) || die "build failed"
+elif command -v curl >/dev/null 2>&1; then
+	say "Downloading $asset ..."
 	if [ -t 2 ]; then
 		curl -fL --retry 3 -o "$tmp" "$url" || die "download failed: $url"
 	else
 		curl -fsSL --retry 3 -o "$tmp" "$url" || die "download failed: $url"
 	fi
 elif command -v wget >/dev/null 2>&1; then
+	say "Downloading $asset ..."
 	wget -O "$tmp" "$url" || die "download failed: $url"
 else
 	die "need curl or wget"
