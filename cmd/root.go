@@ -60,7 +60,7 @@ func init() {
 	rootCmd.Flags().IntVarP(&seasonFlag, "season", "s", 0, "Specify season number")
 	rootCmd.Flags().StringVarP(&episodeFlag, "episodes", "e", "", "Specify episode or range (e.g. 1, 1-5)")
 	rootCmd.Flags().StringVarP(&actionFlag, "action", "a", "", "Action to perform (play, download)")
-	rootCmd.Flags().BoolVar(&showImageFlag, "show-image", false, "Show poster preview using chafa")
+	rootCmd.Flags().BoolVar(&showImageFlag, "show-image", true, "Show poster previews (disable with --show-image=false)")
 	rootCmd.Flags().StringVarP(&providerFlag, "provider", "p", "", "Specify provider")
 	rootCmd.Flags().BoolVarP(&debugFlag, "debug", "d", false, "Enable debug output")
 	rootCmd.Flags().BoolVarP(&bestFlag, "best", "b", false, "Auto-select best quality")
@@ -80,6 +80,9 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		printBanner()
+		if showImageFlag && !core.CanPreview() {
+			fmt.Println("Note: poster previews need chafa (install: sudo pacman -S chafa, apt install chafa, brew install chafa)")
+		}
 		client := core.NewClient()
 		ctx := &core.Context{
 			Client: client,
@@ -338,7 +341,7 @@ var rootCmd = &cobra.Command{
 			}
 
 			var rIdx int
-			if showImageFlag {
+			if useImages(showImageFlag) {
 				fmt.Println("Downloading recommendation posters...")
 				var wg sync.WaitGroup
 				for _, r := range recs {
@@ -358,7 +361,8 @@ var rootCmd = &cobra.Command{
 				exe, _ := os.Executable()
 				exeFwd := strings.ReplaceAll(exe, `\`, `/`)
 				cacheDirFwd := strings.ReplaceAll(cacheDir, `\`, `/`)
-				previewCmd := fmt.Sprintf("%s preview --backend %s --cache %s {}", exeFwd, rcfg.ImageBackend, cacheDirFwd)
+				backend := core.DetectImageBackend(rcfg.ImageBackend)
+				previewCmd := fmt.Sprintf("%s preview --backend %s --cache %s {}", exeFwd, backend, cacheDirFwd)
 				rIdx = core.SelectWithPreview("Recommendations:", labels, previewCmd)
 				go core.CleanCache()
 			} else {
@@ -551,7 +555,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		var idx int
-		if showImageFlag {
+		if useImages(showImageFlag) {
 			fmt.Println("Downloading posters...")
 			var wg sync.WaitGroup
 			for _, r := range results {
@@ -571,7 +575,8 @@ var rootCmd = &cobra.Command{
 			// handle backslash-separated paths.
 			exeFwd := strings.ReplaceAll(exe, `\`, `/`)
 			cacheDirFwd := strings.ReplaceAll(cacheDir, `\`, `/`)
-			previewCmd := fmt.Sprintf("%s preview --backend %s --cache %s {}", exeFwd, cfg.ImageBackend, cacheDirFwd)
+			backend := core.DetectImageBackend(cfg.ImageBackend)
+			previewCmd := fmt.Sprintf("%s preview --backend %s --cache %s {}", exeFwd, backend, cacheDirFwd)
 			idx = core.SelectWithPreview("Results:", titles, previewCmd)
 		} else {
 			idx = core.Select("Results:", titles)
@@ -804,6 +809,12 @@ var rootCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+// useImages reports whether poster previews should run: enabled by default,
+// but silently skipped when chafa is not installed.
+func useImages(showImage bool) bool {
+	return showImage && core.CanPreview()
 }
 
 // newMovieFallback builds the default movie/TV provider chain: Cinejoy with

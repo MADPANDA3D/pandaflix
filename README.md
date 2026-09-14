@@ -200,7 +200,7 @@ pandaflix [query] [flags]
 | `--provider` | `-p` | Select provider (e.g. `sflix`, `braflix`). Overrides config. |
 | `--history` | `-H` | Browse watch history and resume a previous title. |
 | `--recommend` | `-r` | Get personalised recommendations based on watch history. |
-| `--show-image` | NA | Show poster previews in fzf (requires chafa and a supported terminal). |
+| `--show-image` | `true` | Show poster previews in fzf (requires chafa; skipped automatically when missing). Disable with `--show-image=false`. |
 | `--debug` | `-d` | Print debug information (URLs, decryption steps, etc.). |
 | `--help` | `-h` | Show help message and exit. |
 
@@ -314,7 +314,7 @@ audio_delay: 0
 > To see poster images, your terminal emulator must support a graphics protocol.
 > Supported terminals include kitty, ghostty, WezTerm, and foot (sixel).
 >
-> If you use kitty or ghostty, set `image_backend: kitty` in your config.
+> kitty, ghostty, and WezTerm are auto-detected; set `image_backend` in config only to override the detected format.
 
 ## Hooks & MpvArgs
 

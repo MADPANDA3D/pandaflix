@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 func GetCacheDir() (string, error) {
@@ -99,7 +100,40 @@ func CleanCache() error {
 
 func PreviewPoster(path string) error {
 	cfg := LoadConfig()
-	return PreviewWithBackend(path, cfg.ImageBackend)
+	return PreviewWithBackend(path, DetectImageBackend(cfg.ImageBackend))
+}
+
+// CanPreview reports whether the chafa renderer required for poster previews
+// is available on PATH.
+func CanPreview() bool {
+	_, err := exec.LookPath("chafa")
+	return err == nil
+}
+
+// DetectImageBackend chooses the chafa output format for the current terminal.
+// Kitty-protocol terminals get "kitty"; known sixel terminals stay on their
+// configured backend; everything else falls back to the configured value.
+func DetectImageBackend(configured string) string {
+	term := strings.ToLower(os.Getenv("TERM"))
+	termProgram := strings.ToLower(os.Getenv("TERM_PROGRAM"))
+
+	kittyFamily := os.Getenv("KITTY_WINDOW_ID") != "" ||
+		os.Getenv("WEZTERM_PANE") != "" ||
+		strings.Contains(term, "kitty") ||
+		strings.Contains(term, "ghostty") ||
+		termProgram == "ghostty" || termProgram == "wezterm" || termProgram == "kitty"
+	if kittyFamily {
+		return "kitty"
+	}
+
+	sixelFamily := strings.Contains(term, "foot") ||
+		strings.Contains(term, "mlterm") ||
+		strings.Contains(term, "contour") ||
+		strings.Contains(term, "st-")
+	if sixelFamily {
+		return "sixel"
+	}
+	return configured
 }
 
 // PreviewWithBackend renders the image at path using chafa with the given backend.

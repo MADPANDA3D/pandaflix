@@ -1,12 +1,12 @@
 # Image / Poster Preview
 
-Luffy can download and display movie or show posters in the terminal using [chafa](https://hpjansson.org/chafa/) before the fzf selection prompt. This is controlled by the `--show-image` flag and the `image_backend` config option.
+Pandaflix downloads and displays movie or show posters in the terminal using [chafa](https://hpjansson.org/chafa/) before the fzf selection prompt. Previews are **enabled by default** (disable with `--show-image=false`) and are silently skipped when chafa is not installed. The rendering format is auto-detected per terminal, with the `image_backend` config option as an override.
 
 ## How It Works
 
 ### 1. Trigger
 
-When `--show-image` is passed on the command line, poster preview is activated for two flows:
+With `--show-image` enabled (the default), poster preview runs for two flows:
 
 - **Normal search** — posters come from provider `SearchResult.Poster` fields (direct image URLs from the provider).
 - **Recommendations** — posters come from TMDB via `TMDB_IMAGE_BASE_URL + Recommendation.PosterPath`.
@@ -69,7 +69,7 @@ Both `stdout` and `stderr` are connected to the terminal so chafa's output appea
 | `iterm`       | iTerm2 inline image protocol |
 | `symbols`     | Unicode block/braille characters (no graphics protocol needed) |
 
-The default backend is `sixel`. Override it in `~/.config/pandaflix/config.yaml`:
+The backend is auto-detected at runtime: Kitty-protocol terminals (kitty, ghostty, WezTerm) get `kitty`, known sixel terminals (foot, mlterm, contour) get `sixel`, and anything else uses the configured value. Override it in `~/.config/pandaflix/config.yaml`:
 
 ```yaml
 image_backend: kitty
@@ -103,8 +103,14 @@ func DownloadPoster(url string, title string) (string, error)
 // CleanCache removes all files from ~/.cache/pandaflix/.
 func CleanCache() error
 
-// PreviewPoster renders the image at path using the backend from the loaded
-// config file. Calls PreviewWithBackend internally.
+// CanPreview reports whether chafa is installed (poster previews need it).
+func CanPreview() bool
+
+// DetectImageBackend returns the chafa format for the current terminal,
+// falling back to the configured value.
+func DetectImageBackend(configured string) string
+
+// PreviewPoster renders the image at path using the detected backend.
 func PreviewPoster(path string) error
 
 // PreviewWithBackend renders the image at path by running:
@@ -122,7 +128,7 @@ func PreviewWithBackend(path, backend string) error
 ## End-to-End Flow Diagram
 
 ```
-pandaflix "title" --show-image
+pandaflix "title"
         │
         ▼
 provider.Search()  →  []SearchResult{Poster: "https://..."}

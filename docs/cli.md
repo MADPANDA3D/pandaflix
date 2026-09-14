@@ -16,7 +16,7 @@ pandaflix preview [title]    # hidden sub-command used by fzf preview integratio
 | `--season` | `-s` | int | 0 | Pre-select a season by number |
 | `--episodes` | `-e` | string | `""` | Single episode or range (`1`, `1-5`) |
 | `--action` | `-a` | string | `""` | Skip action prompt (`play` or `download`) |
-| `--show-image` | | bool | false | Display poster thumbnails in fzf via chafa |
+| `--show-image` | | bool | true | Display poster thumbnails in fzf via chafa (skipped automatically when chafa is missing; disable with `--show-image=false`) |
 | `--provider` | `-p` | string | `""` | Override config provider |
 | `--debug` | `-d` | bool | false | Print verbose debug output |
 | `--best` | `-b` | bool | false | Auto-select highest quality, skip fzf prompt |
