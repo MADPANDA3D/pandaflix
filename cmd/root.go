@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -81,7 +82,7 @@ var rootCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		printBanner()
 		if showImageFlag && !core.CanPreview() {
-			fmt.Println("Note: poster previews need chafa (install: sudo pacman -S chafa, apt install chafa, brew install chafa)")
+			fmt.Printf("Note: poster previews need chafa (install: %s). Previews stay off until then.\n", previewInstallHint())
 		}
 		client := core.NewClient()
 		ctx := &core.Context{
@@ -819,6 +820,27 @@ var rootCmd = &cobra.Command{
 // but silently skipped when chafa is not installed.
 func useImages(showImage bool) bool {
 	return showImage && core.CanPreview()
+}
+
+// previewInstallHint returns the chafa install command for this system's
+// package manager, preferring the package manager that is actually present.
+func previewInstallHint() string {
+	hints := []struct {
+		binary  string
+		command string
+	}{
+		{"apk", "apk add chafa"},
+		{"pacman", "sudo pacman -S chafa"},
+		{"apt-get", "sudo apt install chafa"},
+		{"dnf", "sudo dnf install chafa"},
+		{"brew", "brew install chafa"},
+	}
+	for _, hint := range hints {
+		if _, err := exec.LookPath(hint.binary); err == nil {
+			return hint.command
+		}
+	}
+	return "chafa from your package manager"
 }
 
 // newMovieFallback builds the default movie/TV provider chain: Cinejoy with

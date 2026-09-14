@@ -113,4 +113,6 @@ esac
 
 say ""
 say "Run it:  $BIN \"movie name\""
-say "Note: playback needs mpv; on iSH (32-bit emulation) Go binaries may be unstable."
+say "Note: playback needs mpv."
+say "iSH caveat: iSH lacks the pidfd syscall required by Go 1.23+; pandaflix installs"
+say "but will crash when it launches a player. Use a real Linux box (SSH) or Termux."
