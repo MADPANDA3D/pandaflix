@@ -13,6 +13,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -30,6 +32,8 @@ func main() {
 	episode := flag.Int("episode", 1, "episode number to resolve for series")
 	providerName := flag.String("provider", "cinejoy", "provider to exercise: cinejoy|vixsrc|fallback")
 	play := flag.Bool("play", false, "run 3s headless mpv decode proof")
+	download := flag.Bool("download", false, "download the resolved stream (bound the run with an external timeout)")
+	dump := flag.Bool("dump", false, "print the master playlist and its first variant, then exit")
 	playCLI := flag.Bool("play-cli", false, "run mpv with the same invocation the CLI uses")
 	flag.Parse()
 	if *query == "" && *tmdb == "" {
@@ -111,6 +115,22 @@ func main() {
 	}
 	fmt.Printf("resolved in %s: %s\n", time.Since(start).Round(time.Millisecond), redact(streamURL))
 
+	if *dump {
+		dumpPlaylists(streamURL, base)
+		os.Exit(0)
+	}
+	if *download {
+		dir, err := os.MkdirTemp("", "pandaflix-dl-")
+		if err != nil {
+			fatal("download", err)
+		}
+		fmt.Printf("download test dir: %s\n", dir)
+		if err := core.Download(dir, dir, "download-test", streamURL, base+"/", userAgent, nil, true); err != nil {
+			fatal("download", err)
+		}
+		fmt.Println("OK (download completed)")
+		os.Exit(0)
+	}
 	if *playCLI {
 		if err := cliMpvProof(streamURL, base, alang); err != nil {
 			fatal("cli playback", err)
@@ -128,6 +148,49 @@ func main() {
 	}
 	fmt.Println("OK (mpv decoded 3s of video and audio)")
 	os.Exit(0)
+}
+
+func dumpPlaylists(masterURL, base string) {
+	fetch := func(u string) string {
+		req, err := http.NewRequest(http.MethodGet, u, nil)
+		if err != nil {
+			fatal("dump", err)
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", base+"/")
+		resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+		if err != nil {
+			fatal("dump", err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		fmt.Printf("--- HTTP %d for %s\n", resp.StatusCode, redact(u))
+		return string(body)
+	}
+
+	master := fetch(masterURL)
+	fmt.Println(master)
+	var variant string
+	lines := strings.Split(master, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "#EXT-X-STREAM-INF:") {
+			for _, next := range lines[i+1:] {
+				next = strings.TrimSpace(next)
+				if next == "" {
+					continue
+				}
+				if !strings.HasPrefix(next, "#") {
+					variant = next
+				}
+				break
+			}
+			break
+		}
+	}
+	if variant != "" {
+		fmt.Println("=== first variant ===")
+		fmt.Println(fetch(variant))
+	}
 }
 
 func cliMpvProof(streamURL, base, alang string) error {
