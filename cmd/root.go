@@ -267,7 +267,7 @@ var rootCmd = &cobra.Command{
 					return fmt.Errorf("error getting link: %v", err)
 				}
 				if currentAction == "play" {
-					streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, histProviderName, ctx.Title, debugFlag, bestFlag)
+					streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, histProviderName, ctx.Title, 0, 0, debugFlag, bestFlag)
 					if err != nil {
 						return err
 					}
@@ -476,7 +476,7 @@ var rootCmd = &cobra.Command{
 					return fmt.Errorf("error getting link: %v", err)
 				}
 				if currentAction == "play" {
-					streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ctx.Title, debugFlag, bestFlag)
+					streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ctx.Title, 0, 0, debugFlag, bestFlag)
 					if err != nil {
 						return err
 					}
@@ -733,7 +733,7 @@ var rootCmd = &cobra.Command{
 				if err != nil {
 					return fmt.Errorf("error getting link: %v", err)
 				}
-				streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ctx.Title, debugFlag, bestFlag)
+				streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ctx.Title, 0, 0, debugFlag, bestFlag)
 				if err != nil {
 					return err
 				}
@@ -859,6 +859,7 @@ func resolveStreamURL(
 	cfg *core.Config,
 	providerName string,
 	name string,
+	season, episode int,
 	debugMode bool,
 	best bool,
 ) (streamURL, referer string, subtitles []string, err error) {
@@ -959,6 +960,12 @@ func resolveStreamURL(
 		}
 	}
 
+	// If the stream carries no subtitles, fall back to OpenSubtitles so
+	// captions are still available when the source has none.
+	if len(subtitles) == 0 && isMovieProvider(providerName) && ctx.URL != "" {
+		subtitles = append(subtitles, fetchFallbackSubtitles(ctx, season, episode, debugMode)...)
+	}
+
 	// Cinejoy masters carry their audio as a separate rendition group; handing
 	// a bare variant playlist to the player loses audio entirely. The master
 	// itself (with its DEFAULT=YES variant and audio group) is passed through
@@ -1011,6 +1018,34 @@ func resolveStreamURL(
 	}
 
 	return
+}
+
+// isMovieProvider reports whether the provider serves movies/TV with TMDB
+// metadata (the providers eligible for the OpenSubtitles fallback).
+func isMovieProvider(providerName string) bool {
+	for _, name := range []string{"cinejoy", "vixsrc", "cineby", "vidking", "videasy"} {
+		if strings.EqualFold(providerName, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// fetchFallbackSubtitles resolves an IMDb ID from the provider URL and fetches
+// English subtitles from OpenSubtitles. Best-effort: returns nil on any failure.
+func fetchFallbackSubtitles(ctx *core.Context, season, episode int, debugMode bool) []string {
+	tmdbID, mediaType := core.ExtractTMDBIDFromURL(ctx.URL)
+	if tmdbID == "" {
+		return nil
+	}
+	imdbID := core.GetIMDBIDFromTMDB(tmdbID, mediaType, ctx.Client)
+	if imdbID == "" {
+		return nil
+	}
+	if debugMode {
+		fmt.Println("No embedded subtitles; fetching English subtitles...")
+	}
+	return core.FetchOpenSubtitles(imdbID, season, episode, ctx.Client)
 }
 
 func isAnimeProvider(providerName string) bool {
@@ -1097,7 +1132,7 @@ func buildProcessStream(
 	best bool,
 ) func(link, name string, season, episode int, epName string) error {
 	return func(link, name string, season, episode int, epName string) error {
-		streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, name, debugMode, best)
+		streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, name, season, episode, debugMode, best)
 		if err != nil {
 			return err
 		}
@@ -1187,7 +1222,7 @@ func playSeriesWithControls(
 			continue
 		}
 
-		streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ep.Name, debugMode, best)
+		streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ep.Name, seasonNum, ewn.num, debugMode, best)
 		if err != nil {
 			fmt.Println("Error resolving stream:", err)
 			idx++

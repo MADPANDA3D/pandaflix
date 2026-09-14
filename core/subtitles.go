@@ -8,8 +8,47 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
+
+// openSubtitleResult is one entry from the OpenSubtitles legacy search API.
+type openSubtitleResult struct {
+	SubDownloadLink    string `json:"SubDownloadLink"`
+	SubFormat          string `json:"SubFormat"`
+	SubHearingImpaired string `json:"SubHearingImpaired"`
+	SubDownloadsCnt    string `json:"SubDownloadsCnt"`
+	SubRating          string `json:"SubRating"`
+}
+
+// pickSubtitle chooses the best non-hearing-impaired SRT result. Ratings are
+// weighted first (a rated upload is usually a clean release rather than a
+// monetized spam upload), then download count. Falls back to the first
+// downloadable entry.
+func pickSubtitle(results []openSubtitleResult) string {
+	best := ""
+	bestScore := -1.0
+	for _, r := range results {
+		if r.SubDownloadLink == "" || r.SubFormat != "srt" || r.SubHearingImpaired != "0" {
+			continue
+		}
+		rating, _ := strconv.ParseFloat(r.SubRating, 64)
+		count, _ := strconv.Atoi(r.SubDownloadsCnt)
+		score := rating*100000 + float64(count)
+		if score > bestScore {
+			best, bestScore = r.SubDownloadLink, score
+		}
+	}
+	if best != "" {
+		return best
+	}
+	for _, r := range results {
+		if r.SubDownloadLink != "" {
+			return r.SubDownloadLink
+		}
+	}
+	return ""
+}
 
 // FetchOpenSubtitles fetches English subtitles from OpenSubtitles legacy API using an IMDB ID.
 // Supports season and episode filters for TV shows to ensure precise subtitle timing.
@@ -45,28 +84,12 @@ func FetchOpenSubtitles(imdbID string, season, episode int, client *http.Client)
 		return nil
 	}
 
-	var results []struct {
-		SubDownloadLink    string `json:"SubDownloadLink"`
-		SubFormat          string `json:"SubFormat"`
-		SubHearingImpaired string `json:"SubHearingImpaired"`
-	}
+	var results []openSubtitleResult
 	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
 		return nil
 	}
 
-	var chosenURL string
-	// Return first non-HI srt subtitle
-	for _, r := range results {
-		if r.SubDownloadLink != "" && r.SubFormat == "srt" && r.SubHearingImpaired == "0" {
-			chosenURL = r.SubDownloadLink
-			break
-		}
-	}
-	// Fallback to first available
-	if chosenURL == "" && len(results) > 0 && results[0].SubDownloadLink != "" {
-		chosenURL = results[0].SubDownloadLink
-	}
-
+	chosenURL := pickSubtitle(results)
 	if chosenURL != "" {
 		localPath, err := downloadAndDecompressGzip(chosenURL, client)
 		if err == nil {

@@ -73,6 +73,13 @@ func Download(basePath, dlPath, name, url, referer, userAgent string, subtitles 
 			if debug {
 				fmt.Printf("[download] Downloading subtitle to %s...\n", subPath)
 			}
+			// Subtitles fetched from OpenSubtitles are already local files.
+			if _, statErr := os.Stat(subURL); statErr == nil {
+				if copyErr := copyLocalFile(subURL, subPath); copyErr != nil {
+					fmt.Printf("[warning] Failed to copy subtitle: %v\n", copyErr)
+				}
+				continue
+			}
 			if subErr := downloadFileWithRetry(subURL, subPath, 3); subErr != nil {
 				fmt.Printf("[warning] Failed to download subtitle: %v\n", subErr)
 			}
@@ -140,6 +147,23 @@ func Download(basePath, dlPath, name, url, referer, userAgent string, subtitles 
 
 	fmt.Println("[download] Complete!")
 	return nil
+}
+
+// copyLocalFile copies a local file (e.g. an OpenSubtitles temp download)
+// into the download directory.
+func copyLocalFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // sanitizeFilename replaces characters that are problematic in filenames.
