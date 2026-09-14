@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -194,16 +195,20 @@ func dumpPlaylists(masterURL, base string) {
 }
 
 func cliMpvProof(streamURL, base, alang string) error {
-	// Mirror the CLI behavior: the master playlist goes straight to the
-	// player (no variant extraction, which can strip audio renditions).
+	// Mirror the CLI behavior: split provider suffixes (|referer=, |subs=)
+	// like cmd.resolveStreamURL does, then hand everything to mpv.
+	streamURL, referer, subs := splitStreamSuffixes(streamURL, base)
 	fmt.Printf("quality stage: skipped (master passthrough)\n")
 
 	// Mirror buildPlayerCmd's default (non-darwin, non-vlc) mpv invocation.
 	args := []string{
 		streamURL,
-		"--referrer=" + base + "/",
+		"--referrer=" + referer,
 		"--user-agent=" + userAgent,
 		"--force-media-title=Playing CLI replication",
+	}
+	for _, sub := range subs {
+		args = append(args, "--sub-file="+sub)
 	}
 	args = append(args, "--input-ipc-server=/tmp/cinejoycheck-mpv.sock")
 	os.Remove("/tmp/cinejoycheck-mpv.sock")
@@ -226,14 +231,19 @@ func cliMpvProof(streamURL, base, alang string) error {
 }
 
 func decodeProof(streamURL, base, alang string) error {
-	cmd := exec.Command("mpv", "--no-config", "--vo=null", "--ao=null", "--length=3",
+	streamURL, referer, subs := splitStreamSuffixes(streamURL, base)
+	args := []string{"--no-config", "--vo=null", "--ao=null", "--length=3",
 		"--network-timeout=10", "--ytdl=no",
-		"--user-agent="+userAgent,
-		"--referrer="+base+"/",
-		"--http-header-fields=Origin: "+base,
-		"--alang="+alang,
-		"--term-status-msg=PROBE time=${time-pos}",
-		streamURL)
+		"--user-agent=" + userAgent,
+		"--referrer=" + referer,
+		"--http-header-fields=Origin: " + base,
+		"--alang=" + alang,
+		"--term-status-msg=PROBE time=${time-pos}"}
+	for _, sub := range subs {
+		args = append(args, "--sub-file="+sub)
+	}
+	args = append(args, streamURL)
+	cmd := exec.Command("mpv", args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Start(); err != nil {
@@ -246,6 +256,37 @@ func decodeProof(streamURL, base, alang string) error {
 	err := cmd.Wait()
 	timer.Stop()
 	return err
+}
+
+// splitStreamSuffixes mimics cmd.resolveStreamURL's handling of the
+// |referer= and |subs= suffixes some providers append to stream URLs.
+func splitStreamSuffixes(streamURL, base string) (string, string, []string) {
+	referer := base + "/"
+	var subs []string
+	if idx := strings.Index(streamURL, "|referer="); idx != -1 {
+		value := streamURL[idx+9:]
+		streamURL = streamURL[:idx]
+		if next := strings.Index(value, "|"); next != -1 {
+			streamURL += value[next:]
+			value = value[:next]
+		}
+		if decoded, err := url.QueryUnescape(value); err == nil && decoded != "" {
+			referer = decoded
+		}
+	}
+	if idx := strings.Index(streamURL, "|subs="); idx != -1 {
+		value := streamURL[idx+6:]
+		streamURL = streamURL[:idx]
+		if decoded, err := url.QueryUnescape(value); err == nil {
+			value = decoded
+		}
+		for _, sub := range strings.Split(value, ",") {
+			if sub = strings.TrimSpace(sub); sub != "" {
+				subs = append(subs, sub)
+			}
+		}
+	}
+	return streamURL, referer, subs
 }
 
 func redact(raw string) string {
