@@ -39,108 +39,90 @@ func (f *fakeProvider) GetLink(string) (string, error) {
 	return f.link, f.linkErr
 }
 
-func TestFallbackGetLink(t *testing.T) {
-	primary := &fakeProvider{linkErr: fmt.Errorf("primary down")}
-	backup := &fakeProvider{link: "https://backup.example/master.m3u8"}
-	f := NewFallback(primary, backup, "Primary", "Backup")
+func newTestFallback(providers ...*fakeProvider) *Fallback {
+	list := make([]core.Provider, len(providers))
+	names := make([]string, len(providers))
+	for i, p := range providers {
+		list[i] = p
+		names[i] = fmt.Sprintf("P%d", i)
+	}
+	return NewFallback(list, names)
+}
 
-	link, err := f.GetLink("movie|1|Title|2000")
-	if err != nil || link != backup.link {
-		t.Fatalf("expected backup link, got %q err=%v", link, err)
+func TestFallbackServerList(t *testing.T) {
+	f := newTestFallback(&fakeProvider{}, &fakeProvider{}, &fakeProvider{})
+	servers, err := f.GetServers("movie|1|Title|2000")
+	if err != nil || len(servers) != 3 {
+		t.Fatalf("expected 3 entries, got %v err=%v", servers, err)
 	}
-	if primary.linkCalls != 1 {
-		t.Fatalf("primary should be tried once, got %d", primary.linkCalls)
+	if servers[0].ID != "p0|movie|1|Title|2000" || servers[2].ID != "p2|movie|1|Title|2000" {
+		t.Fatalf("unexpected IDs: %+v", servers)
+	}
+	if servers[1].Name != "P1 (Auto)" {
+		t.Fatalf("unexpected name: %q", servers[1].Name)
 	}
 
-	primaryOK := &fakeProvider{link: "https://primary.example/master.m3u8"}
-	backupOK := &fakeProvider{link: "https://backup.example/master.m3u8"}
-	f2 := NewFallback(primaryOK, backupOK, "Primary", "Backup")
-	link, err = f2.GetLink("movie|1|Title|2000")
-	if err != nil || link != primaryOK.link {
-		t.Fatalf("expected primary link, got %q err=%v", link, err)
+	episodes, err := f.GetEpisodes("movie|1|Title|2000", false)
+	if err != nil || len(episodes) != 3 || episodes[1].ID != "p1|movie|1|Title|2000" {
+		t.Fatalf("movie server list failed: %+v err=%v", episodes, err)
 	}
-	if backupOK.linkCalls != 0 {
-		t.Fatalf("backup should not be called on success")
+}
+
+func TestFallbackRouting(t *testing.T) {
+	p0 := &fakeProvider{link: "https://p0/x.m3u8"}
+	p1 := &fakeProvider{linkErr: fmt.Errorf("p1 down")}
+	p2 := &fakeProvider{link: "https://p2/x.m3u8"}
+	f := newTestFallback(p0, p1, p2)
+
+	// Chosen provider wins.
+	link, err := f.GetLink("p2|movie|1|T|2000")
+	if err != nil || link != "https://p2/x.m3u8" {
+		t.Fatalf("chosen provider failed: %q err=%v", link, err)
+	}
+
+	// Chosen provider fails -> next providers are tried in order.
+	p0.linkCalls, p1.linkCalls, p2.linkCalls = 0, 0, 0
+	link, err = f.GetLink("p1|movie|1|T|2000")
+	if err != nil || link != "https://p0/x.m3u8" {
+		t.Fatalf("fallback after chosen failure failed: %q err=%v", link, err)
+	}
+	if p1.linkCalls != 1 {
+		t.Fatalf("chosen provider not tried exactly once: %d", p1.linkCalls)
+	}
+
+	// Unprefixed IDs use the default order.
+	link, err = f.GetLink("movie|1|T|2000")
+	if err != nil || link != "https://p0/x.m3u8" {
+		t.Fatalf("default order failed: %q err=%v", link, err)
+	}
+}
+
+func TestFallbackAllFail(t *testing.T) {
+	f := newTestFallback(
+		&fakeProvider{linkErr: fmt.Errorf("p0 down")},
+		&fakeProvider{linkErr: fmt.Errorf("p1 down")},
+	)
+	if _, err := f.GetLink("p0|movie|1|T|2000"); err == nil {
+		t.Fatal("expected error when all providers fail")
 	}
 }
 
 func TestFallbackReadOperations(t *testing.T) {
-	primary := &fakeProvider{searchErr: fmt.Errorf("down"), seasonsErr: fmt.Errorf("down"), episodesErr: fmt.Errorf("down"), mediaIDErr: fmt.Errorf("down")}
-	backup := &fakeProvider{
-		searchResults: []core.SearchResult{{Title: "T"}},
-		mediaID:       "id",
-		seasons:       []core.Season{{ID: "s"}},
-		episodes:      []core.Episode{{ID: "e"}},
-		servers:       []core.Server{{ID: "sv"}},
-	}
-	f := NewFallback(primary, backup, "Primary", "Backup")
+	p0 := &fakeProvider{searchErr: fmt.Errorf("down"), mediaIDErr: fmt.Errorf("down"), seasonsErr: fmt.Errorf("down"), episodesErr: fmt.Errorf("down")}
+	p1 := &fakeProvider{searchResults: nil, mediaID: "id", seasons: []core.Season{{ID: "s"}}, episodes: []core.Episode{{ID: "e"}}}
+	p2 := &fakeProvider{searchResults: []core.SearchResult{{Title: "T"}}}
+	f := newTestFallback(p0, p1, p2)
 
 	if results, err := f.Search("x"); err != nil || len(results) != 1 {
-		t.Fatalf("search fallback failed: %v %v", results, err)
+		t.Fatalf("search should use the first non-empty provider: %v err=%v", results, err)
 	}
 	if id, err := f.GetMediaID("u"); err != nil || id != "id" {
-		t.Fatalf("mediaID fallback failed: %q %v", id, err)
+		t.Fatalf("mediaID should use the first accepting provider: %q err=%v", id, err)
 	}
 	if seasons, err := f.GetSeasons("id"); err != nil || len(seasons) != 1 {
-		t.Fatalf("seasons fallback failed: %v %v", seasons, err)
+		t.Fatalf("seasons fallback failed: %v err=%v", seasons, err)
 	}
 	if episodes, err := f.GetEpisodes("id", true); err != nil || len(episodes) != 1 {
-		t.Fatalf("episodes fallback failed: %v %v", episodes, err)
-	}
-}
-
-func TestFallbackServerListAndRouting(t *testing.T) {
-	primaryDown := &fakeProvider{linkErr: fmt.Errorf("primary down")}
-	backupOK := &fakeProvider{link: "https://backup.example/master.m3u8"}
-	f := NewFallback(primaryDown, backupOK, "Cinejoy", "VixSrc")
-
-	servers, err := f.GetServers("movie|1|Title|2000")
-	if err != nil || len(servers) != 2 {
-		t.Fatalf("expected both servers exposed, got %v err=%v", servers, err)
-	}
-	if servers[0].ID != "primary|movie|1|Title|2000" || servers[1].ID != "backup|movie|1|Title|2000" {
-		t.Fatalf("unexpected server IDs: %+v", servers)
-	}
-	if servers[0].Name != "Cinejoy (Auto)" || servers[1].Name != "VixSrc (Auto)" {
-		t.Fatalf("unexpected server names: %+v", servers)
-	}
-
-	// Primary selection falls back to the backup when the primary fails.
-	link, err := f.GetLink(servers[0].ID)
-	if err != nil || link != backupOK.link {
-		t.Fatalf("primary-routed fallback failed: %q %v", link, err)
-	}
-
-	// Backup selection routes to the backup directly.
-	backupOK.linkCalls = 0
-	link, err = f.GetLink(servers[1].ID)
-	if err != nil || link != backupOK.link || backupOK.linkCalls != 1 {
-		t.Fatalf("backup routing failed: %q %v calls=%d", link, err, backupOK.linkCalls)
-	}
-
-	// Backup selection falls back to the primary when the backup fails.
-	primaryDown.link = "https://primary.example/master.m3u8"
-	primaryDown.linkErr = nil
-	backupDown := &fakeProvider{linkErr: fmt.Errorf("backup down")}
-	f2 := NewFallback(primaryDown, backupDown, "Cinejoy", "VixSrc")
-	link, err = f2.GetLink("backup|movie|1|Title|2000")
-	if err != nil || link != primaryDown.link {
-		t.Fatalf("backup-routed fallback failed: %q %v", link, err)
-	}
-
-	// Movie "episode" lists expose both providers too.
-	episodes, err := f.GetEpisodes("movie|1|Title|2000", false)
-	if err != nil || len(episodes) != 2 || episodes[0].ID != "primary|movie|1|Title|2000" || episodes[1].ID != "backup|movie|1|Title|2000" {
-		t.Fatalf("movie server list did not expose both providers: %+v err=%v", episodes, err)
-	}
-}
-
-func TestFallbackBothFail(t *testing.T) {
-	primary := &fakeProvider{linkErr: fmt.Errorf("primary down")}
-	backup := &fakeProvider{linkErr: fmt.Errorf("backup down")}
-	f := NewFallback(primary, backup, "Primary", "Backup")
-
-	if _, err := f.GetLink("movie|1|Title|2000"); err == nil {
-		t.Fatal("expected error when both providers fail")
+		t.Fatalf("episodes fallback failed: %v err=%v", episodes, err)
 	}
 }

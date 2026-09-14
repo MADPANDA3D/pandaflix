@@ -826,10 +826,12 @@ func useImages(showImage bool) bool {
 // so a failure in one transparently retries the other.
 func newMovieFallback(client *http.Client) core.Provider {
 	return providers.NewFallback(
-		providers.NewCinejoy(client),
-		providers.NewVixSrc(client),
-		"Cinejoy",
-		"VixSrc",
+		[]core.Provider{
+			providers.NewCinejoy(client),
+			providers.NewVixSrc(client),
+			providers.NewLookMovie(client),
+		},
+		[]string{"Cinejoy", "VixSrc", "LookMovie"},
 	)
 }
 

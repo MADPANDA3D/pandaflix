@@ -36,6 +36,7 @@ func main() {
 	download := flag.Bool("download", false, "download the resolved stream (bound the run with an external timeout)")
 	dump := flag.Bool("dump", false, "print the master playlist and its first variant, then exit")
 	playCLI := flag.Bool("play-cli", false, "run mpv with the same invocation the CLI uses")
+	pick := flag.Int("pick", 0, "server entry index to resolve when multiple are offered")
 	flag.Parse()
 	if *query == "" && *tmdb == "" {
 		fmt.Fprintln(os.Stderr, "cinejoycheck: -q or -tmdb is required")
@@ -53,7 +54,10 @@ func main() {
 		p = providers.NewLookMovie(client)
 		base = providers.LookMovieBaseURL
 	case "fallback":
-		p = providers.NewFallback(providers.NewCinejoy(client), providers.NewVixSrc(client), "Cinejoy", "VixSrc")
+		p = providers.NewFallback(
+			[]core.Provider{providers.NewCinejoy(client), providers.NewVixSrc(client), providers.NewLookMovie(client)},
+			[]string{"Cinejoy", "VixSrc", "LookMovie"},
+		)
 	default:
 		p = providers.NewCinejoy(client)
 	}
@@ -108,7 +112,18 @@ func main() {
 			if err != nil || len(servers) == 0 {
 				fatal("GetServers", fmt.Errorf("no servers: %w", err))
 			}
-			requestID = servers[0].ID
+			idx := *pick
+			if idx < 0 || idx >= len(servers) {
+				idx = 0
+			}
+			requestID = servers[idx].ID
+			for i, srv := range servers {
+				mark := " "
+				if i == idx {
+					mark = "*"
+				}
+				fmt.Printf("server[%d]%s %s\n", i, mark, srv.Name)
+			}
 		}
 	}
 

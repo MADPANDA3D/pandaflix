@@ -213,7 +213,12 @@ func (l *LookMovie) GetServers(id string) ([]core.Server, error) {
 func (l *LookMovie) GetLink(serverID string) (string, error) {
 	req, err := parseLookMovieID(serverID)
 	if err != nil {
-		return "", err
+		// Accept the shared TMDB ID format so LookMovie can participate in the
+		// provider fallback chain.
+		req, err = l.lookmovieRequestFromTMDB(serverID)
+		if err != nil {
+			return "", err
+		}
 	}
 	if req.kind == "series" && (req.season == "" || req.episode == "") {
 		return "", fmt.Errorf("lookmovie: series resolution requires season and episode")
@@ -295,6 +300,77 @@ func (l *LookMovie) GetLink(serverID string) (string, error) {
 }
 
 // --- Pages and API parsing (pure helpers) -----------------------------------
+
+// lookmovieRequestFromTMDB maps a shared TMDB request ID onto a LookMovie
+// slug by matching IMDb ID (via TMDB external ids) or title/year.
+func (l *LookMovie) lookmovieRequestFromTMDB(id string) (lookmovieRequest, error) {
+	tmdb, err := parseTMDBMediaID(id)
+	if err != nil {
+		return lookmovieRequest{}, fmt.Errorf("invalid lookmovie ID")
+	}
+	mediaType := "movie"
+	api := "movies"
+	if tmdb.kind == "series" {
+		mediaType = "tv"
+		api = "shows"
+	}
+	imdb := core.GetIMDBIDFromTMDB(tmdb.tmdb, mediaType, l.Client)
+
+	params := url.Values{}
+	params.Set("q", tmdb.title)
+	if tmdb.title == "" {
+		params.Set("q", tmdb.tmdb)
+	}
+	body, err := lookmovieFetch(context.Background(), l.Client, LookMovieBaseURL+"/api/v1/"+api+"/do-search/?"+params.Encode(), 2<<20)
+	if err != nil {
+		return lookmovieRequest{}, fmt.Errorf("lookmovie: search: %w", err)
+	}
+	var data struct {
+		Result []lookmovieSearchResult `json:"result"`
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return lookmovieRequest{}, fmt.Errorf("lookmovie: invalid search response")
+	}
+	slug := matchLookMovieResult(data.Result, imdb, tmdb.title, tmdb.year)
+	if slug == "" {
+		return lookmovieRequest{}, fmt.Errorf("lookmovie: no match for %q", tmdb.title)
+	}
+	return lookmovieRequest{kind: tmdb.kind, slug: slug, season: tmdb.season, episode: tmdb.episode}, nil
+}
+
+// matchLookMovieResult picks the best result: IMDb-prefixed slug first, then
+// exact title (preferring a matching year).
+func matchLookMovieResult(results []lookmovieSearchResult, imdb, title, year string) string {
+	imdb = strings.TrimPrefix(imdb, "tt")
+	var titleMatch, yearMatch string
+	for _, r := range results {
+		if r.Slug == "" {
+			continue
+		}
+		if imdb != "" && strings.HasPrefix(r.Slug, imdb+"-") {
+			return r.Slug
+		}
+		if title != "" && strings.EqualFold(strings.TrimSpace(r.Title), strings.TrimSpace(title)) {
+			if titleMatch == "" {
+				titleMatch = r.Slug
+			}
+			resultYear := ""
+			switch v := r.Year.(type) {
+			case float64:
+				resultYear = fmt.Sprintf("%d", int(v))
+			case string:
+				resultYear = v
+			}
+			if year != "" && strings.HasPrefix(resultYear, year) {
+				yearMatch = r.Slug
+			}
+		}
+	}
+	if yearMatch != "" {
+		return yearMatch
+	}
+	return titleMatch
+}
 
 // lookmovieSeasons fetches the show's play page and parses its season data.
 func (l *LookMovie) lookmovieSeasons(slug string) (map[string][]lookmovieEpisode, error) {
