@@ -110,6 +110,8 @@ var rootCmd = &cobra.Command{
 			provider = newMovieFallback(client)
 		} else if strings.EqualFold(providerName, "vixsrc") {
 			provider = providers.NewVixSrc(client)
+		} else if strings.EqualFold(providerName, "lookmovie") {
+			provider = providers.NewLookMovie(client)
 		} else if strings.EqualFold(providerName, "youtube") {
 			provider = providers.NewYouTube(client)
 		} else {
@@ -164,6 +166,8 @@ var rootCmd = &cobra.Command{
 				histProvider = newMovieFallback(client)
 			case "vixsrc":
 				histProvider = providers.NewVixSrc(client)
+			case "lookmovie":
+				histProvider = providers.NewLookMovie(client)
 			default:
 				histProviderName = "cinejoy"
 				histProvider = newMovieFallback(client)
@@ -902,7 +906,7 @@ func resolveStreamURL(
 		if streamURL == "" {
 			streamURL = link
 		}
-	} else if isAnimeProvider(providerName) || strings.EqualFold(providerName, "cinejoy") || strings.EqualFold(providerName, "vixsrc") || strings.EqualFold(providerName, "youtube") {
+	} else if isAnimeProvider(providerName) || strings.EqualFold(providerName, "cinejoy") || strings.EqualFold(providerName, "vixsrc") || strings.EqualFold(providerName, "lookmovie") || strings.EqualFold(providerName, "youtube") {
 		streamURL = link
 		if idx := strings.Index(streamURL, "|referer="); idx != -1 {
 			refererStr := streamURL[idx+9:]

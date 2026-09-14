@@ -297,6 +297,7 @@ You can set the default provider in the config file (`~/.config/pandaflix/config
 |----------|-------------------|---------|-------|
 | Cinejoy | `cinejoy` | Movies & TV | Default. Browser-free sealed resolver; auto-races Lisbon/Nebula/Solara. |
 | VixSrc | `vixsrc` | Movies & TV | Independent backup. Listed in the Servers menu; also used automatically when Cinejoy fails. |
+| LookMovie | `lookmovie` | Movies & TV | IMDb-keyed catalog with its own API; per-title playback plus English captions. Select with `--provider lookmovie`. |
 | Anime (sub) | `anime` or `allanime` | Anime | Subtitled. Uses AllAnime. |
 | Anime (dub) | `anime-dub` or `allanime-dub` | Anime | Dubbed. Uses AllAnime. |
 

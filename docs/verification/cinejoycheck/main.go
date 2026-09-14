@@ -49,6 +49,9 @@ func main() {
 	case "vixsrc":
 		p = providers.NewVixSrc(client)
 		base = providers.VixSrcBaseURL
+	case "lookmovie":
+		p = providers.NewLookMovie(client)
+		base = providers.LookMovieBaseURL
 	case "fallback":
 		p = providers.NewFallback(providers.NewCinejoy(client), providers.NewVixSrc(client), "Cinejoy", "VixSrc")
 	default:
@@ -67,7 +70,7 @@ func main() {
 		}
 		var picked *core.SearchResult
 		for i := range results {
-			if strings.EqualFold(results[i].Title, *query) && results[i].Type == core.Movie {
+			if strings.EqualFold(results[i].Title, *query) {
 				picked = &results[i]
 				break
 			}
