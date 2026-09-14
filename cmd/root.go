@@ -79,6 +79,7 @@ var rootCmd = &cobra.Command{
 	Args:    cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		printBanner()
 		client := core.NewClient()
 		ctx := &core.Context{
 			Client: client,
