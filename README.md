@@ -64,100 +64,48 @@
 
 ## Installation
 
-### 1. Arch Linux
+### 1. Prebuilt binaries (recommended)
+
+Download the binary for your platform from the [latest release](https://github.com/MADPANDA3D/pandaflix/releases/latest):
+
+| Platform | File |
+|----------|------|
+| Linux x86_64 | `pandaflix_linux_amd64` |
+| Linux arm64 | `pandaflix_linux_arm64` |
+| macOS Intel | `pandaflix_darwin_amd64` |
+| macOS Apple Silicon | `pandaflix_darwin_arm64` |
+| Windows x86_64 | `pandaflix_windows_amd64.exe` |
+
+Each file ships with a `.sha256` checksum. Make it executable and put it on your `PATH`:
 
 ```sh
-paru -S pandaflix-bin
+chmod +x pandaflix_linux_amd64
+mv pandaflix_linux_amd64 ~/.local/bin/pandaflix
 ```
 
-### 2. NixOS / Nix / MacOS
-
-#### Run without installing
-```bash
-nix run github:DemonKingSwarn/pandaflix
-```
-
-#### Install into profile
-```bash
-nix profile install github:DemonKingSwarn/pandaflix
-```
-
-#### NixOS flake input
-```nix
-inputs.pandaflix.url = "github:DemonKingSwarn/pandaflix";
-
-environment.systemPackages = [ inputs.pandaflix.packages.${system}.pandaflix ];
-```
-
-### 3. Debian-based or Ubuntu-based
-
-```sh
-curl -fsSL https://demonkingswarn.is-a.dev/debmon-repo/pubkey.gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/debmon-repo.gpg
-
-echo "deb [arch=amd64] https://demonkingswarn.is-a.dev/debmon-repo stable main" | sudo tee /etc/apt/sources.list.d/debmon-repo.list
-
-sudo apt update
-
-sudo apt install -y pandaflix
-```
-
-### 4. Fedora
-
-```sh
-echo '[fedmon-repo]
-name=fedmon-repo
-baseurl=https://demonkingswarn.is-a.dev/fedmon-repo/rpms
-enabled=1
-gpgcheck=1
-gpgkey=https://demonkingswarn.is-a.dev/fedmon-repo/pubkey.gpg' | sudo tee /etc/yum.repos.d/fedmon-repo.repo
-
-sudo dnf update
-
-sudo dnf install -y pandaflix
-```
-
-### 5. MacOS
-
-```sh
-brew tap gamedevCloudy/tools
-brew install --cask iina
-brew install pandaflix
-```
-
-### 6. Windows
-
-Make sure you have [scoop.sh](https://scoop.sh) installed on your system.
-
-```sh
-scoop bucket add demon-apps https://github.com/DemonKingSwarn/flix-cli-bucket.git
-scoop bucket add extras
-scoop install pandaflix
-```
-
-> [!IMPORTANT]
-> On windows if you want to use the `--show-image`, you need to use the `wezterm` terminal emulator. It is installed as a dependency on windows.
-
-### 7. Go Install
-
-If you have Go installed, you can easily install Pandaflix:
+### 2. Go install
 
 ```bash
 go install github.com/MADPANDA3D/pandaflix@latest
 ```
 
-### 8. Build from Source
+### 3. Build from source
 
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/MADPANDA3D/pandaflix.git
-    cd pandaflix
-    ```
+```bash
+git clone https://github.com/MADPANDA3D/pandaflix.git
+cd pandaflix
+CGO_ENABLED=0 go build -trimpath -o pandaflix .
+```
 
-2.  Build and install:
-    ```bash
-    go install .
-    ```
-    *Ensure your `$GOPATH/bin` is in your system's `PATH`.*
+### Dependencies
+
+- `mpv` (default player) or `vlc`
+- `ffmpeg` (download remuxing)
+- `fzf` (menus)
+- `chafa` (optional — poster previews; install with `sudo pacman -S chafa`, `apt install chafa`, or `brew install chafa`)
+
+> [!IMPORTANT]
+> On Windows, poster previews need a graphics-capable terminal such as WezTerm.
 
 ### 9. Android Installation
 
