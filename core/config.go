@@ -110,6 +110,9 @@ type Config struct {
 	// AudioDelay shifts audio relative to video in seconds for mpv: positive
 	// values delay audio (use when audio plays early), negative advance it.
 	AudioDelay float64 `yaml:"audio_delay"`
+	// SubDelay shifts subtitles relative to the video in seconds for mpv:
+	// positive values delay subtitles, negative advance them.
+	SubDelay float64 `yaml:"sub_delay"`
 	// MpvArgs holds extra command-line arguments appended to every mpv invocation.
 	// Example: ["--hwdec=auto", "--volume=80"]
 	MpvArgs []string    `yaml:"mpv_args"`

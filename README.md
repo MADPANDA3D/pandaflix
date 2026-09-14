@@ -251,6 +251,9 @@ minimize_on_play: true
 # advances it) — use if a stream's audio plays slightly early/late.
 audio_delay: 0
 
+# Shift subtitles relative to video (seconds; positive delays subtitles).
+sub_delay: 0
+
 # Extra arguments appended to every mpv invocation (ignored on VLC/IINA/Android).
 # mpv_args:
 #   - "--hwdec=auto"
