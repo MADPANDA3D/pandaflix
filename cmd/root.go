@@ -357,7 +357,7 @@ var rootCmd = &cobra.Command{
 					go func(posterURL, title string) {
 						defer wg.Done()
 						core.DownloadPoster(posterURL, title)
-					}(core.TMDB_IMAGE_BASE_URL+r.PosterPath, r.Title)
+					}(core.TMDB_IMAGE_BASE_URL+r.PosterPath, posterNameFromLabel(core.FormatRecommendLabel(r)))
 				}
 				wg.Wait()
 
@@ -556,19 +556,23 @@ var rootCmd = &cobra.Command{
 
 		var titles []string
 		for _, r := range results {
-			titles = append(titles, fmt.Sprintf("[%s] %s", r.Type, r.Title))
+			label := fmt.Sprintf("[%s] %s", r.Type, r.Title)
+			if r.Year != "" {
+				label += fmt.Sprintf(" (%s)", r.Year)
+			}
+			titles = append(titles, label)
 		}
 
 		var idx int
 		if useImages(showImageFlag) {
 			fmt.Println("Downloading posters...")
 			var wg sync.WaitGroup
-			for _, r := range results {
+			for i, r := range results {
 				wg.Add(1)
-				go func(r core.SearchResult) {
+				go func(r core.SearchResult, name string) {
 					defer wg.Done()
-					core.DownloadPoster(r.Poster, r.Title)
-				}(r)
+					core.DownloadPoster(r.Poster, name)
+				}(r, posterNameFromLabel(titles[i]))
 			}
 			wg.Wait()
 
@@ -820,6 +824,15 @@ var rootCmd = &cobra.Command{
 // but silently skipped when chafa is not installed.
 func useImages(showImage bool) bool {
 	return showImage && core.CanPreview()
+}
+
+// posterNameFromLabel derives the poster cache name from an fzf label. It
+// must mirror the hidden preview subcommand's sanitization input so downloads
+// and lookups agree (and so same-title entries with different years no longer
+// collide on one file).
+func posterNameFromLabel(label string) string {
+	rePrefix := regexp.MustCompile(`^\[.*\] `)
+	return rePrefix.ReplaceAllString(label, "")
 }
 
 // previewInstallHint returns the chafa install command for this system's
