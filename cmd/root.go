@@ -1001,10 +1001,17 @@ func resolveStreamURL(
 		}
 	}
 
-	// If the stream carries no subtitles, fall back to OpenSubtitles so
-	// captions are still available when the source has none.
-	if len(subtitles) == 0 && isMovieProvider(providerName) && ctx.URL != "" {
-		subtitles = append(subtitles, fetchFallbackSubtitles(ctx, season, episode, debugMode)...)
+	// Captions: prefer our own OpenSubtitles fetch (subtitle_source:
+	// "external", the default) so timing is consistent, even when the
+	// provider embeds subtitles. "stream" keeps provider subtitles; "auto"
+	// only fetches when the stream has none.
+	if isMovieProvider(providerName) && ctx.URL != "" {
+		preferExternal := !strings.EqualFold(cfg.SubtitleSource, "stream")
+		if preferExternal || len(subtitles) == 0 {
+			if external := fetchFallbackSubtitles(ctx, season, episode, debugMode); len(external) > 0 {
+				subtitles = external
+			}
+		}
 	}
 
 	// Cinejoy masters carry their audio as a separate rendition group; handing

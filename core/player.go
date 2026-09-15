@@ -159,13 +159,16 @@ func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, su
 			if audioLang != "" {
 				args = append(args, fmt.Sprintf("--alang=%s", audioLang))
 			}
+			loadingArgs := []string{
+				"--force-window=immediate",
+				fmt.Sprintf("--osd-playing-msg=Loading %s...", title),
+				"--osd-playing-msg-duration=3000",
+			}
 			if isPlaylist {
-				args = append([]string{
-					fmt.Sprintf("--playlist-start=%d", playlistStart),
-					"--force-window=immediate",
-				}, append(playlistEntries, args[1:]...)...)
+				loadingArgs = append([]string{fmt.Sprintf("--playlist-start=%d", playlistStart)}, loadingArgs...)
+				args = append(loadingArgs, append(playlistEntries, args[1:]...)...)
 			} else {
-				args = append([]string{"--force-window=immediate"}, args...)
+				args = append(loadingArgs, args...)
 			}
 			for _, sub := range subtitles {
 				if sub != "" {
@@ -241,13 +244,16 @@ func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, su
 			if audioLang != "" {
 				args = append(args, fmt.Sprintf("--alang=%s", audioLang))
 			}
+			loadingArgs := []string{
+				"--force-window=immediate",
+				fmt.Sprintf("--osd-playing-msg=Loading %s...", title),
+				"--osd-playing-msg-duration=3000",
+			}
 			if isPlaylist {
-				args = append([]string{
-					fmt.Sprintf("--playlist-start=%d", playlistStart),
-					"--force-window=immediate",
-				}, append(playlistEntries, args[1:]...)...)
+				loadingArgs = append([]string{fmt.Sprintf("--playlist-start=%d", playlistStart)}, loadingArgs...)
+				args = append(loadingArgs, append(playlistEntries, args[1:]...)...)
 			} else {
-				args = append([]string{"--force-window=immediate"}, args...)
+				args = append(loadingArgs, args...)
 			}
 			for _, sub := range subtitles {
 				if sub != "" {

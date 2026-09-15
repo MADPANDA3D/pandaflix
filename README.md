@@ -257,6 +257,10 @@ sub_delay: 0
 # Scale subtitle timing when they run fast/slow throughout (1 = unchanged).
 sub_speed: 1
 
+# Captions: external = prefer OpenSubtitles (consistent timing);
+# stream = prefer the provider's own; auto = streams when present.
+subtitle_source: external
+
 # Series: play the next episode automatically when one ends.
 auto_next: true
 

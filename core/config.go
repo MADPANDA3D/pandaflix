@@ -116,6 +116,10 @@ type Config struct {
 	// SubSpeed scales subtitle timing (mpv --sub-speed). Use values below 1
 	// when subtitles consistently run ahead (framerate mismatch), e.g. 0.96.
 	SubSpeed float64 `yaml:"sub_speed"`
+	// SubtitleSource chooses captions: "external" (default) prefers
+	// OpenSubtitles so timing is consistent, "stream" prefers the provider's
+	// embedded subtitles, "auto" uses streams when present.
+	SubtitleSource string `yaml:"subtitle_source"`
 	// AutoNext continues to the next episode automatically when one ends,
 	// and enables the player's next/previous controls for series playback.
 	AutoNext bool `yaml:"auto_next"`
@@ -131,16 +135,17 @@ type Config struct {
 
 func LoadConfig() *Config {
 	config := &Config{
-		FzfPath:        "fzf",    // Default
-		Player:         "mpv",    // Default player
-		ImageBackend:   "sixel",  // Default image backend
-		Provider:       "flixhq", // Default provider
-		DlPath:         "",       // Default: use home directory
-		Quality:        "",       // Default: prompt user to select quality
-		MinimizeOnPlay: true,     // Default: hide terminal while the player is open
-		AutoNext:       true,     // Default: continue to the next episode automatically
-		Prefetch:       true,     // Default: warm the next episode in the background
-		YtLang:         "",       // Default: let youtube decide
+		FzfPath:        "fzf",      // Default
+		Player:         "mpv",      // Default player
+		ImageBackend:   "sixel",    // Default image backend
+		Provider:       "flixhq",   // Default provider
+		DlPath:         "",         // Default: use home directory
+		Quality:        "",         // Default: prompt user to select quality
+		MinimizeOnPlay: true,       // Default: hide terminal while the player is open
+		AutoNext:       true,       // Default: continue to the next episode automatically
+		Prefetch:       true,       // Default: warm the next episode in the background
+		SubtitleSource: "external", // Default: prefer our own subtitle fetch
+		YtLang:         "",         // Default: let youtube decide
 	}
 
 	home, err := os.UserHomeDir()
@@ -168,6 +173,7 @@ func LoadConfig() *Config {
 			MinimizeOnPlay: true,
 			AutoNext:       true,
 			Prefetch:       true,
+			SubtitleSource: "external",
 			YtLang:         "",
 		}
 	}
