@@ -1231,6 +1231,27 @@ func buildProcessStream(
 	}
 }
 
+// buildEpisodePlaylist wraps an episode stream URL with invisible placeholder
+// entries when auto-next is enabled, which makes the player's next/previous
+// controls work and lets episode-end be detected over IPC.
+func buildEpisodePlaylist(streamURL string, idx, total int, autoNext bool) string {
+	if !autoNext {
+		return streamURL
+	}
+	parts := make([]string, 0, 3)
+	if idx > 0 {
+		parts = append(parts, core.PlaylistPlaceholder)
+	}
+	parts = append(parts, streamURL)
+	if idx+1 < total {
+		parts = append(parts, core.PlaylistPlaceholder)
+	}
+	if len(parts) > 1 {
+		return strings.Join(parts, "\n")
+	}
+	return streamURL
+}
+
 // playSeriesWithControls plays a series starting at startIdx within allEpisodes,
 // showing a Playback control menu (Next / Previous / Replay / Quit) after each
 // episode starts. Navigation wraps within the season.
@@ -1246,55 +1267,91 @@ func playSeriesWithControls(
 	debugMode bool,
 	best bool,
 ) error {
+	type resolvedEpisode struct {
+		link, streamURL, referer string
+		subtitles                []string
+		playURL                  string
+		err                      error
+	}
+
+	resolveEpisode := func(i int) resolvedEpisode {
+		ewn := allEpisodes[i]
+		ep := ewn.ep
+		res := resolvedEpisode{}
+		link, err := getLinkForEpisode(ewn, prov, providerName)
+		if err != nil {
+			res.err = err
+			return res
+		}
+		streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ep.Name, seasonNum, ewn.num, debugMode, best)
+		if err != nil {
+			res.err = err
+			return res
+		}
+		res.link = link
+		res.streamURL = streamURL
+		res.referer = referer
+		res.subtitles = subtitles
+		res.playURL = buildEpisodePlaylist(streamURL, i, len(allEpisodes), cfg.AutoNext)
+		return res
+	}
+
+	// Episodes are resolved ahead of time so switching (Next/Previous or
+	// episode end) does not spend seconds on stream resolution: the next
+	// player window opens immediately and only buffers.
+	type cacheEntry struct {
+		ready chan struct{}
+		res   resolvedEpisode
+	}
+	var cacheMu sync.Mutex
+	cache := map[int]*cacheEntry{}
+	resolveCached := func(i int) resolvedEpisode {
+		cacheMu.Lock()
+		entry, ok := cache[i]
+		if !ok {
+			entry = &cacheEntry{ready: make(chan struct{})}
+			cache[i] = entry
+			cacheMu.Unlock()
+			entry.res = resolveEpisode(i)
+			close(entry.ready)
+			return entry.res
+		}
+		cacheMu.Unlock()
+		<-entry.ready
+		return entry.res
+	}
+	prefetch := func(i int) {
+		if i < 0 || i >= len(allEpisodes) {
+			return
+		}
+		go func() { _ = resolveCached(i) }()
+	}
+
 	idx := startIdx
 	for {
 		ewn := allEpisodes[idx]
 		ep := ewn.ep
 		fmt.Printf("\nProcessing: %s\n", ep.Name)
 
-		link, err := getLinkForEpisode(ewn, prov, providerName)
-		if err != nil {
-			fmt.Println("Error getting link:", err)
-			// Try to skip to next on error
+		res := resolveCached(idx)
+		if res.err != nil {
+			fmt.Println("Error resolving episode:", res.err)
 			idx++
 			if idx >= len(allEpisodes) {
 				return nil
 			}
 			continue
 		}
-
-		streamURL, referer, subtitles, err := resolveStreamURL(link, ctx, cfg, providerName, ep.Name, seasonNum, ewn.num, debugMode, best)
-		if err != nil {
-			fmt.Println("Error resolving stream:", err)
-			idx++
-			if idx >= len(allEpisodes) {
-				return nil
-			}
-			continue
-		}
+		link, streamURL, referer, subtitles, playURL := res.link, res.streamURL, res.referer, res.subtitles, res.playURL
 
 		if debugMode {
 			fmt.Printf("Stream URL: %s\n", streamURL)
 		}
 
-		// With auto-next enabled, hand the player a tiny playlist with
-		// invisible placeholder entries around the episode. That makes the
-		// player's next/previous controls functional and lets us detect
-		// "episode finished" (mpv advances into the placeholder) over IPC.
-		playURL := streamURL
-		if cfg.AutoNext {
-			parts := make([]string, 0, 3)
-			if idx > 0 {
-				parts = append(parts, core.PlaylistPlaceholder)
-			}
-			parts = append(parts, streamURL)
-			if idx+1 < len(allEpisodes) {
-				parts = append(parts, core.PlaylistPlaceholder)
-			}
-			if len(parts) > 1 {
-				playURL = strings.Join(parts, "\n")
-			}
-		}
+		// Warm the neighbours so the player controls and auto-advance are
+		// instant.
+		prefetch(idx + 1)
+		prefetch(idx - 1)
 
 		lastPos := getLastPosition(histDB, ctx.Title, seasonNum, ewn.num)
 		result, err := core.PlayWithControls(playURL, ctx.Title+" - "+ep.Name, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugMode, lastPos, core.HookContext{
