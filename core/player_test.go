@@ -31,7 +31,7 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 	if err := os.MkdirAll(cfgDir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.yaml"), []byte("minimize_on_play: false\naudio_delay: 0.25\nsub_delay: 0.25\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(cfgDir, "config.yaml"), []byte("minimize_on_play: false\naudio_delay: 0.25\nsub_delay: 0.25\nsub_speed: 0.96\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -114,6 +114,9 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 					}
 					if !strings.Contains(string(data), "--sub-delay=0.25\n") {
 						t.Error("sub_delay was not forwarded to the player")
+					}
+					if !strings.Contains(string(data), "--sub-speed=0.96\n") {
+						t.Error("sub_speed was not forwarded to the player")
 					}
 				}
 				entries, err := os.ReadDir(filepath.Join(tmp, "mpvsockets"))

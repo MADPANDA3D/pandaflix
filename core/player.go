@@ -153,6 +153,9 @@ func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, su
 			if cfg.SubDelay != 0 {
 				args = append(args, fmt.Sprintf("--sub-delay=%g", cfg.SubDelay))
 			}
+			if cfg.SubSpeed != 0 && cfg.SubSpeed != 1 {
+				args = append(args, fmt.Sprintf("--sub-speed=%g", cfg.SubSpeed))
+			}
 			if audioLang != "" {
 				args = append(args, fmt.Sprintf("--alang=%s", audioLang))
 			}
@@ -231,6 +234,9 @@ func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, su
 			}
 			if cfg.SubDelay != 0 {
 				args = append(args, fmt.Sprintf("--sub-delay=%g", cfg.SubDelay))
+			}
+			if cfg.SubSpeed != 0 && cfg.SubSpeed != 1 {
+				args = append(args, fmt.Sprintf("--sub-speed=%g", cfg.SubSpeed))
 			}
 			if audioLang != "" {
 				args = append(args, fmt.Sprintf("--alang=%s", audioLang))

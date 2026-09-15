@@ -254,6 +254,9 @@ audio_delay: 0
 # Shift subtitles relative to video (seconds; positive delays subtitles).
 sub_delay: 0
 
+# Scale subtitle timing when they run fast/slow throughout (1 = unchanged).
+sub_speed: 1
+
 # Series: play the next episode automatically when one ends.
 auto_next: true
 

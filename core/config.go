@@ -113,6 +113,9 @@ type Config struct {
 	// SubDelay shifts subtitles relative to the video in seconds for mpv:
 	// positive values delay subtitles, negative advance them.
 	SubDelay float64 `yaml:"sub_delay"`
+	// SubSpeed scales subtitle timing (mpv --sub-speed). Use values below 1
+	// when subtitles consistently run ahead (framerate mismatch), e.g. 0.96.
+	SubSpeed float64 `yaml:"sub_speed"`
 	// AutoNext continues to the next episode automatically when one ends,
 	// and enables the player's next/previous controls for series playback.
 	AutoNext bool `yaml:"auto_next"`
