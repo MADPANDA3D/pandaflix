@@ -127,3 +127,16 @@ func TestPlaybackPreservesSuppliedSubtitles(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitPlaylistURLs(t *testing.T) {
+	entries, start, ok := splitPlaylistURLs(PlaylistPlaceholder + "\nhttps://cdn.example/ep.m3u8\n" + PlaylistPlaceholder)
+	if !ok || start != 1 || len(entries) != 3 {
+		t.Fatalf("playlist parse failed: ok=%v start=%d entries=%v", ok, start, entries)
+	}
+	if _, _, ok := splitPlaylistURLs("https://cdn.example/ep.m3u8"); ok {
+		t.Fatal("single URL treated as playlist")
+	}
+	if _, _, ok := splitPlaylistURLs(PlaylistPlaceholder + "\n" + PlaylistPlaceholder); ok {
+		t.Fatal("placeholder-only list accepted")
+	}
+}

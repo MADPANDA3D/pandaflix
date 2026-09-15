@@ -254,6 +254,9 @@ audio_delay: 0
 # Shift subtitles relative to video (seconds; positive delays subtitles).
 sub_delay: 0
 
+# Series: play the next episode automatically when one ends.
+auto_next: true
+
 # Extra arguments appended to every mpv invocation (ignored on VLC/IINA/Android).
 # mpv_args:
 #   - "--hwdec=auto"

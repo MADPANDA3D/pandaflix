@@ -27,6 +27,7 @@ If the file does not exist, cannot be read, or contains invalid YAML, `LoadConfi
 | `minimize_on_play` | `true` | Hide the terminal window while the player is open and restore it when playback ends (Hyprland via `hyprctl`, other Linux via `xdotool`; no-op without those tools) |
 | `audio_delay` | `0` | mpv audio delay in seconds; positive delays audio (use when audio plays early), negative advances it |
 | `sub_delay` | `0` | mpv subtitle delay in seconds; positive delays subtitles, negative advances them |
+| `auto_next` | `true` | Series: continue to the next episode automatically when one ends, and enable the player's next/previous controls |
 | `mpv_args` | `[]` | Extra CLI arguments appended to every mpv invocation |
 | `hooks.on_play` | `""` | Shell command run before the player launches |
 | `hooks.on_exit` | `""` | Shell command run after the player exits |

@@ -1264,8 +1264,27 @@ func playSeriesWithControls(
 			fmt.Printf("Stream URL: %s\n", streamURL)
 		}
 
+		// With auto-next enabled, hand the player a tiny playlist with
+		// invisible placeholder entries around the episode. That makes the
+		// player's next/previous controls functional and lets us detect
+		// "episode finished" (mpv advances into the placeholder) over IPC.
+		playURL := streamURL
+		if cfg.AutoNext {
+			parts := make([]string, 0, 3)
+			if idx > 0 {
+				parts = append(parts, core.PlaylistPlaceholder)
+			}
+			parts = append(parts, streamURL)
+			if idx+1 < len(allEpisodes) {
+				parts = append(parts, core.PlaylistPlaceholder)
+			}
+			if len(parts) > 1 {
+				playURL = strings.Join(parts, "\n")
+			}
+		}
+
 		lastPos := getLastPosition(histDB, ctx.Title, seasonNum, ewn.num)
-		result, err := core.PlayWithControls(streamURL, ctx.Title+" - "+ep.Name, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugMode, lastPos, core.HookContext{
+		result, err := core.PlayWithControls(playURL, ctx.Title+" - "+ep.Name, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugMode, lastPos, core.HookContext{
 			Title:    ctx.Title,
 			URL:      link,
 			Season:   seasonNum,

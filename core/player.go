@@ -111,6 +111,8 @@ func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, su
 		cfg = LoadConfig()
 	}
 
+	playlistEntries, playlistStart, isPlaylist := splitPlaylistURLs(url)
+
 	var cmd *exec.Cmd
 
 	if checkAndroid() {
@@ -153,6 +155,14 @@ func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, su
 			}
 			if audioLang != "" {
 				args = append(args, fmt.Sprintf("--alang=%s", audioLang))
+			}
+			if isPlaylist {
+				args = append([]string{
+					fmt.Sprintf("--playlist-start=%d", playlistStart),
+					"--force-window=immediate",
+				}, append(playlistEntries, args[1:]...)...)
+			} else {
+				args = append([]string{"--force-window=immediate"}, args...)
 			}
 			for _, sub := range subtitles {
 				if sub != "" {
@@ -225,6 +235,14 @@ func buildPlayerCmd(url, title, referer, userAgent, origin, audioLang string, su
 			if audioLang != "" {
 				args = append(args, fmt.Sprintf("--alang=%s", audioLang))
 			}
+			if isPlaylist {
+				args = append([]string{
+					fmt.Sprintf("--playlist-start=%d", playlistStart),
+					"--force-window=immediate",
+				}, append(playlistEntries, args[1:]...)...)
+			} else {
+				args = append([]string{"--force-window=immediate"}, args...)
+			}
 			for _, sub := range subtitles {
 				if sub != "" {
 					args = append(args, fmt.Sprintf("--sub-file=%s", sub))
@@ -263,6 +281,55 @@ func connectMPVIPC(socketPath string) *gopv.Client {
 		time.Sleep(100 * time.Millisecond)
 	}
 	return nil
+}
+
+// PlaylistPlaceholder is an invisible 0.5s placeholder used as an mpv playlist
+// entry so next/previous commands (buttons or keys) can be detected over IPC.
+const PlaylistPlaceholder = "av://lavfi:color=black:s=16x16:d=0.5"
+
+// splitPlaylistURLs decodes a newline-separated URL list used for series
+// playback. It returns the entries and the index of the real (non-placeholder)
+// entry. ok is false for ordinary single-URL playback.
+func splitPlaylistURLs(url string) (entries []string, start int, ok bool) {
+	if !strings.Contains(url, "\n") {
+		return nil, 0, false
+	}
+	parts := strings.Split(url, "\n")
+	start = -1
+	for i, part := range parts {
+		part = strings.TrimSpace(part)
+		parts[i] = part
+		if part != "" && !strings.HasPrefix(part, "av://lavfi:") && start == -1 {
+			start = i
+		}
+	}
+	if start == -1 {
+		return nil, 0, false
+	}
+	return parts, start, true
+}
+
+// readPlaylistPosViaIPC queries mpv's playlist-pos property.
+func readPlaylistPosViaIPC(client *gopv.Client) (int, error) {
+	if client == nil {
+		return 0, fmt.Errorf("no ipc client")
+	}
+	data, err := client.Request("get_property", "playlist-pos")
+	if err != nil {
+		return 0, err
+	}
+	switch v := data.(type) {
+	case float64:
+		return int(v), nil
+	case int:
+		return v, nil
+	case string:
+		n, convErr := strconv.Atoi(v)
+		if convErr == nil {
+			return n, nil
+		}
+	}
+	return 0, fmt.Errorf("unexpected playlist-pos value")
 }
 
 // readPositionViaIPC queries the current time-pos property from mpv over IPC.
@@ -508,6 +575,11 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 		var posMu sync.Mutex
 		var lastPos float64
 		var ipcStop chan struct{}
+		playlistStart := -1
+		if _, start, ok := splitPlaylistURLs(url); ok {
+			playlistStart = start
+		}
+		playlistAction := PlaybackAction("")
 		if socketPath != "" {
 			ipcClient = connectMPVIPC(socketPath)
 			if ipcClient != nil {
@@ -525,6 +597,22 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 								posMu.Lock()
 								lastPos = pos
 								posMu.Unlock()
+							}
+							// Playlist jumps mean the user used the player's
+							// next/previous controls (or the episode ended:
+							// mpv advances into the placeholder entry).
+							if playlistStart >= 0 {
+								if p, err := readPlaylistPosViaIPC(ipcClient); err == nil && p != playlistStart {
+									posMu.Lock()
+									if playlistAction == "" {
+										if p < playlistStart {
+											playlistAction = PlaybackPrevious
+										} else {
+											playlistAction = PlaybackNext
+										}
+									}
+									posMu.Unlock()
+								}
 							}
 						}
 					}
@@ -574,6 +662,15 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 
 		hctx.Position = finalSecs
 		RunHook(cfg.Hooks.OnExit, hctx, debug)
+
+		posMu.Lock()
+		advanced := playlistAction
+		posMu.Unlock()
+		if advanced != "" {
+			// Next/previous detected from the player controls; skip the menu
+			// so episodes continue seamlessly.
+			return PlayResult{Action: advanced, PositionSecs: finalSecs}, nil
+		}
 
 		chosen := SelectActionCtx("Playback:", []string{
 			string(PlaybackNext),

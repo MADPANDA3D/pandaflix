@@ -113,6 +113,9 @@ type Config struct {
 	// SubDelay shifts subtitles relative to the video in seconds for mpv:
 	// positive values delay subtitles, negative advance them.
 	SubDelay float64 `yaml:"sub_delay"`
+	// AutoNext continues to the next episode automatically when one ends,
+	// and enables the player's next/previous controls for series playback.
+	AutoNext bool `yaml:"auto_next"`
 	// MpvArgs holds extra command-line arguments appended to every mpv invocation.
 	// Example: ["--hwdec=auto", "--volume=80"]
 	MpvArgs []string    `yaml:"mpv_args"`
@@ -129,6 +132,7 @@ func LoadConfig() *Config {
 		DlPath:         "",       // Default: use home directory
 		Quality:        "",       // Default: prompt user to select quality
 		MinimizeOnPlay: true,     // Default: hide terminal while the player is open
+		AutoNext:       true,     // Default: continue to the next episode automatically
 		YtLang:         "",       // Default: let youtube decide
 	}
 
@@ -155,6 +159,7 @@ func LoadConfig() *Config {
 			DlPath:         "",
 			Quality:        "",
 			MinimizeOnPlay: true,
+			AutoNext:       true,
 			YtLang:         "",
 		}
 	}
