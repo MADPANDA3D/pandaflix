@@ -21,6 +21,7 @@ type openSubtitleResult struct {
 	SubHearingImpaired string `json:"SubHearingImpaired"`
 	SubDownloadsCnt    string `json:"SubDownloadsCnt"`
 	SubRating          string `json:"SubRating"`
+	SubLastTS          string `json:"SubLastTS"`
 }
 
 // pickSubtitle chooses the best non-hearing-impaired SRT result. Ratings are
@@ -56,7 +57,7 @@ func pickSubtitle(results []openSubtitleResult) string {
 // Supports season and episode filters for TV shows to ensure precise subtitle timing.
 // Downloads and decompresses the subtitle locally to prevent player and compression issues.
 // Returns up to 1 local subtitle file path. Falls back gracefully on any error.
-func FetchOpenSubtitles(imdbID string, season, episode int, client *http.Client) []string {
+func FetchOpenSubtitles(imdbID string, season, episode, durationSecs int, client *http.Client) []string {
 	if imdbID == "" {
 		return nil
 	}
@@ -91,9 +92,10 @@ func FetchOpenSubtitles(imdbID string, season, episode int, client *http.Client)
 		return nil
 	}
 
-	// Try candidates best-first (rating, then downloads) and skip spam uploads
-	// whose files carry advertising cues and often mismatched timings.
-	candidates := rankSubtitles(results)
+	// Try candidates best-first (runtime match when known, then rating and
+	// downloads) and skip spam uploads whose files often carry mismatched
+	// timings.
+	candidates := rankSubtitles(results, durationSecs)
 	var firstNonSpam string
 	for i, candidateURL := range candidates {
 		if i >= 6 {
@@ -118,12 +120,16 @@ func FetchOpenSubtitles(imdbID string, season, episode int, client *http.Client)
 	return nil
 }
 
-// rankSubtitles orders non-hearing-impaired SRT results best-first: rated
-// uploads, then download count.
-func rankSubtitles(results []openSubtitleResult) []string {
+// rankSubtitles orders non-hearing-impaired SRT results best-first. When the
+// stream duration is known, subtitles whose last timestamp is closest to it
+// come first (that is what keeps timing aligned); ties and unknown durations
+// fall back to rating then download count.
+func rankSubtitles(results []openSubtitleResult, durationSecs int) []string {
 	type scored struct {
-		url   string
-		score float64
+		url      string
+		diffSecs int
+		hasTS    bool
+		score    float64
 	}
 	var items []scored
 	for _, r := range results {
@@ -132,9 +138,25 @@ func rankSubtitles(results []openSubtitleResult) []string {
 		}
 		rating, _ := strconv.ParseFloat(r.SubRating, 64)
 		count, _ := strconv.Atoi(r.SubDownloadsCnt)
-		items = append(items, scored{url: r.SubDownloadLink, score: rating*100000 + float64(count)})
+		item := scored{url: r.SubDownloadLink, score: rating*100000 + float64(count)}
+		if ts, ok := parseSubtitleClock(r.SubLastTS); ok && durationSecs > 0 {
+			item.hasTS = true
+			item.diffSecs = ts - durationSecs
+			if item.diffSecs < 0 {
+				item.diffSecs = -item.diffSecs
+			}
+		}
+		items = append(items, item)
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].score > items[j].score })
+	sort.Slice(items, func(i, j int) bool {
+		if durationSecs > 0 && items[i].hasTS != items[j].hasTS {
+			return items[i].hasTS
+		}
+		if durationSecs > 0 && items[i].hasTS && items[j].hasTS && items[i].diffSecs != items[j].diffSecs {
+			return items[i].diffSecs < items[j].diffSecs
+		}
+		return items[i].score > items[j].score
+	})
 	urls := make([]string, 0, len(items))
 	for _, item := range items {
 		urls = append(urls, item.url)
@@ -147,6 +169,103 @@ func rankSubtitles(results []openSubtitleResult) []string {
 		}
 	}
 	return urls
+}
+
+// parseSubtitleClock parses "HH:MM:SS" or "HH:MM:SS.mmm" into seconds.
+func parseSubtitleClock(value string) (int, bool) {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) != 3 {
+		return 0, false
+	}
+	hours, err1 := strconv.Atoi(parts[0])
+	minutes, err2 := strconv.Atoi(parts[1])
+	secondsPart := parts[2]
+	if idx := strings.Index(secondsPart, "."); idx != -1 {
+		secondsPart = secondsPart[:idx]
+	}
+	seconds, err3 := strconv.Atoi(secondsPart)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return 0, false
+	}
+	return hours*3600 + minutes*60 + seconds, true
+}
+
+// StreamDuration estimates an HLS stream's total duration in seconds by
+// summing the media playlist's EXTINF values. ok is false when unavailable.
+func StreamDuration(streamURL, referer string, client *http.Client) (int, bool) {
+	fetch := func(rawURL string) (string, bool) {
+		req, err := NewRequest("GET", rawURL)
+		if err != nil {
+			return "", false
+		}
+		if referer != "" {
+			req.Header.Set("Referer", referer)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return "", false
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return "", false
+		}
+		data, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		if err != nil {
+			return "", false
+		}
+		return string(data), true
+	}
+
+	body, ok := fetch(streamURL)
+	if !ok {
+		return 0, false
+	}
+	// Master playlist: follow the first variant.
+	if strings.Contains(body, "#EXT-X-STREAM-INF:") {
+		var next string
+		lines := strings.Split(body, "\n")
+		for i, line := range lines {
+			if !strings.HasPrefix(strings.TrimSpace(line), "#EXT-X-STREAM-INF:") {
+				continue
+			}
+			for _, candidate := range lines[i+1:] {
+				candidate = strings.TrimSpace(candidate)
+				if candidate == "" || strings.HasPrefix(candidate, "#") {
+					continue
+				}
+				next = candidate
+				break
+			}
+			break
+		}
+		if next == "" {
+			return 0, false
+		}
+		body, ok = fetch(resolvePlaylistURL(streamURL, next))
+		if !ok {
+			return 0, false
+		}
+	}
+	total := 0.0
+	found := false
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "#EXTINF:") {
+			continue
+		}
+		value := strings.TrimPrefix(line, "#EXTINF:")
+		if idx := strings.Index(value, ","); idx != -1 {
+			value = value[:idx]
+		}
+		if seconds, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
+			total += seconds
+			found = true
+		}
+	}
+	if !found || total <= 0 {
+		return 0, false
+	}
+	return int(total), true
 }
 
 // subtitleSpamMarkers are advertising strings found in junk uploads.

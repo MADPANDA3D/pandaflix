@@ -599,24 +599,12 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 			playlistStart = start
 		}
 		playlistAction := PlaybackAction("")
+		// Hide the terminal for the duration of playback.
+		hideTerminal(win)
+
 		if socketPath != "" {
 			ipcClient = connectMPVIPC(socketPath)
 			if ipcClient != nil {
-				// Keep the terminal visible (with the loading message) until
-				// the player decodes its first frame, so buffering reads as a
-				// loading state rather than vanishing into a black window.
-				for i := 0; i < 40; i++ {
-					if pos := readPositionViaIPC(ipcClient); pos > 0 {
-						break
-					}
-					select {
-					case <-done:
-						i = 40
-					default:
-					}
-					time.Sleep(300 * time.Millisecond)
-				}
-				hideTerminal(win)
 				ipcStop = make(chan struct{})
 				go func() {
 					ticker := time.NewTicker(time.Second)

@@ -49,7 +49,7 @@ func TestRankSubtitles(t *testing.T) {
 		{SubDownloadLink: "https://x/low.srt", SubFormat: "srt", SubHearingImpaired: "0", SubDownloadsCnt: "10", SubRating: "2"},
 		{SubDownloadLink: "https://x/high.srt", SubFormat: "srt", SubHearingImpaired: "0", SubDownloadsCnt: "100", SubRating: "9"},
 	}
-	ranked := rankSubtitles(results)
+	ranked := rankSubtitles(results, 0)
 	if len(ranked) != 2 || ranked[0] != "https://x/high.srt" {
 		t.Fatalf("unexpected ranking: %v", ranked)
 	}
@@ -87,5 +87,31 @@ func TestSubtitleSpamFiltering(t *testing.T) {
 	}
 	if subtitleLooksLikeSpam(goodPath) {
 		t.Fatal("clean subtitle flagged as spam")
+	}
+}
+
+func TestRankSubtitlesPrefersRuntimeMatch(t *testing.T) {
+	results := []openSubtitleResult{
+		{SubDownloadLink: "https://x/rated.srt", SubFormat: "srt", SubHearingImpaired: "0", SubDownloadsCnt: "50000", SubRating: "10", SubLastTS: "00:42:00"},
+		{SubDownloadLink: "https://x/matched.srt", SubFormat: "srt", SubHearingImpaired: "0", SubDownloadsCnt: "10", SubRating: "1", SubLastTS: "00:43:05"},
+	}
+	ranked := rankSubtitles(results, 43*60) // stream runtime 43:00
+	if len(ranked) != 2 || ranked[0] != "https://x/matched.srt" {
+		t.Fatalf("runtime match not preferred: %v", ranked)
+	}
+}
+
+func TestParseSubtitleClock(t *testing.T) {
+	for value, want := range map[string]int{
+		"01:48:20":     6500,
+		"00:43:05.500": 2585,
+	} {
+		got, ok := parseSubtitleClock(value)
+		if !ok || got != want {
+			t.Errorf("parseSubtitleClock(%q) = %d,%v want %d", value, got, ok, want)
+		}
+	}
+	if _, ok := parseSubtitleClock("bogus"); ok {
+		t.Fatal("bogus clock accepted")
 	}
 }

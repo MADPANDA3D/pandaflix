@@ -1008,7 +1008,7 @@ func resolveStreamURL(
 	if isMovieProvider(providerName) && ctx.URL != "" {
 		preferExternal := !strings.EqualFold(cfg.SubtitleSource, "stream")
 		if preferExternal || len(subtitles) == 0 {
-			if external := fetchFallbackSubtitles(ctx, season, episode, debugMode); len(external) > 0 {
+			if external := fetchFallbackSubtitles(ctx, streamURL, referer, season, episode, debugMode); len(external) > 0 {
 				subtitles = external
 			}
 		}
@@ -1080,8 +1080,10 @@ func isMovieProvider(providerName string) bool {
 }
 
 // fetchFallbackSubtitles resolves an IMDb ID from the provider URL and fetches
-// English subtitles from OpenSubtitles. Best-effort: returns nil on any failure.
-func fetchFallbackSubtitles(ctx *core.Context, season, episode int, debugMode bool) []string {
+// English subtitles from OpenSubtitles, preferring the release whose runtime
+// matches the stream (that is what keeps caption timing aligned). Best-effort:
+// returns nil on any failure.
+func fetchFallbackSubtitles(ctx *core.Context, streamURL, referer string, season, episode int, debugMode bool) []string {
 	tmdbID, mediaType := core.ExtractTMDBIDFromURL(ctx.URL)
 	if tmdbID == "" {
 		return nil
@@ -1090,10 +1092,14 @@ func fetchFallbackSubtitles(ctx *core.Context, season, episode int, debugMode bo
 	if imdbID == "" {
 		return nil
 	}
-	if debugMode {
-		fmt.Println("No embedded subtitles; fetching English subtitles...")
+	duration := 0
+	if seconds, ok := core.StreamDuration(streamURL, referer, ctx.Client); ok {
+		duration = seconds
 	}
-	return core.FetchOpenSubtitles(imdbID, season, episode, ctx.Client)
+	if debugMode {
+		fmt.Printf("Fetching English subtitles (stream runtime %ds)...\n", duration)
+	}
+	return core.FetchOpenSubtitles(imdbID, season, episode, duration, ctx.Client)
 }
 
 func isAnimeProvider(providerName string) bool {
