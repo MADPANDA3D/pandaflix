@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -89,15 +91,120 @@ func FetchOpenSubtitles(imdbID string, season, episode int, client *http.Client)
 		return nil
 	}
 
-	chosenURL := pickSubtitle(results)
-	if chosenURL != "" {
-		localPath, err := downloadAndDecompressGzip(chosenURL, client)
-		if err == nil {
+	// Try candidates best-first (rating, then downloads) and skip spam uploads
+	// whose files carry advertising cues and often mismatched timings.
+	candidates := rankSubtitles(results)
+	var firstNonSpam string
+	for i, candidateURL := range candidates {
+		if i >= 6 {
+			break
+		}
+		localPath, err := downloadAndDecompressGzip(candidateURL, client)
+		if err != nil {
+			continue
+		}
+		if !subtitleLooksLikeSpam(localPath) {
 			return []string{localPath}
 		}
+		if firstNonSpam == "" {
+			if cleaned, cleanErr := sanitizeSubtitleSpam(localPath); cleanErr == nil {
+				firstNonSpam = cleaned
+			}
+		}
 	}
-
+	if firstNonSpam != "" {
+		return []string{firstNonSpam}
+	}
 	return nil
+}
+
+// rankSubtitles orders non-hearing-impaired SRT results best-first: rated
+// uploads, then download count.
+func rankSubtitles(results []openSubtitleResult) []string {
+	type scored struct {
+		url   string
+		score float64
+	}
+	var items []scored
+	for _, r := range results {
+		if r.SubDownloadLink == "" || r.SubFormat != "srt" || r.SubHearingImpaired != "0" {
+			continue
+		}
+		rating, _ := strconv.ParseFloat(r.SubRating, 64)
+		count, _ := strconv.Atoi(r.SubDownloadsCnt)
+		items = append(items, scored{url: r.SubDownloadLink, score: rating*100000 + float64(count)})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].score > items[j].score })
+	urls := make([]string, 0, len(items))
+	for _, item := range items {
+		urls = append(urls, item.url)
+	}
+	if len(urls) == 0 {
+		for _, r := range results {
+			if r.SubDownloadLink != "" {
+				urls = append(urls, r.SubDownloadLink)
+			}
+		}
+	}
+	return urls
+}
+
+// subtitleSpamMarkers are advertising strings found in junk uploads.
+var subtitleSpamMarkers = []string{
+	"osdb.link", "opensubtitles", "open subtitles",
+	"watch online", "watch movies", "watch tv",
+	"subscene", "addic7ed", "yts.mx", "yify",
+	"download free", "free movies", "www.",
+}
+
+// subtitleLooksLikeSpam reports whether the first cues contain advertising.
+func subtitleLooksLikeSpam(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	head := strings.ToLower(string(data))
+	if len(head) > 4000 {
+		head = head[:4000]
+	}
+	for _, marker := range subtitleSpamMarkers {
+		if strings.Contains(head, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// sanitizeSubtitleSpam removes cue blocks that contain advertising markers,
+// returning the path of the cleaned file (in the same directory).
+func sanitizeSubtitleSpam(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	blocks := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n\n")
+	var kept []string
+	for _, block := range blocks {
+		lower := strings.ToLower(block)
+		spam := false
+		for _, marker := range subtitleSpamMarkers {
+			if strings.Contains(lower, marker) {
+				spam = true
+				break
+			}
+		}
+		if !spam && strings.TrimSpace(block) != "" {
+			kept = append(kept, block)
+		}
+	}
+	if len(kept) == 0 {
+		return "", fmt.Errorf("no usable cues")
+	}
+	cleanedPath := strings.TrimSuffix(path, filepath.Ext(path)) + ".clean.srt"
+	if err := os.WriteFile(cleanedPath, []byte(strings.Join(kept, "\n\n")+"\n"), 0600); err != nil {
+		return "", err
+	}
+	return cleanedPath, nil
 }
 
 func downloadAndDecompressGzip(subURL string, client *http.Client) (string, error) {

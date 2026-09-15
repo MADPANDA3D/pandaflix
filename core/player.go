@@ -556,7 +556,7 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 	win := captureTerminalWindow()
 
 	for {
-		fmt.Printf("Starting player for %s...\n", title)
+		fmt.Printf("Loading %s...\n", title)
 
 		hctx.StreamURL = url
 		hctx.Action = "play"
@@ -579,9 +579,16 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 			return PlayResult{Action: PlaybackQuit}, err
 		}
 
-		// Hide the terminal for the duration of playback.
-		hideTerminal(win)
 		playerStart := time.Now()
+
+		done := make(chan struct{})
+		go func() {
+			err := cmd.Wait()
+			if err != nil && debug {
+				fmt.Printf("\nPlayer exited with error: %v\n", err)
+			}
+			close(done)
+		}()
 
 		var ipcClient *gopv.Client
 		var posMu sync.Mutex
@@ -595,6 +602,21 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 		if socketPath != "" {
 			ipcClient = connectMPVIPC(socketPath)
 			if ipcClient != nil {
+				// Keep the terminal visible (with the loading message) until
+				// the player decodes its first frame, so buffering reads as a
+				// loading state rather than vanishing into a black window.
+				for i := 0; i < 40; i++ {
+					if pos := readPositionViaIPC(ipcClient); pos > 0 {
+						break
+					}
+					select {
+					case <-done:
+						i = 40
+					default:
+					}
+					time.Sleep(300 * time.Millisecond)
+				}
+				hideTerminal(win)
 				ipcStop = make(chan struct{})
 				go func() {
 					ticker := time.NewTicker(time.Second)
@@ -631,15 +653,6 @@ func PlayWithControls(url, title, referer, userAgent, origin, audioLang string, 
 				}()
 			}
 		}
-
-		done := make(chan struct{})
-		go func() {
-			err := cmd.Wait()
-			if err != nil && debug {
-				fmt.Printf("\nPlayer exited with error: %v\n", err)
-			}
-			close(done)
-		}()
 
 		// Wait for the movie to finish/close; the terminal stays tucked away.
 		<-done
