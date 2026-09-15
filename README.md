@@ -257,6 +257,9 @@ sub_delay: 0
 # Series: play the next episode automatically when one ends.
 auto_next: true
 
+# Warm the next episode in the background (disable on slow connections).
+prefetch: true
+
 # Extra arguments appended to every mpv invocation (ignored on VLC/IINA/Android).
 # mpv_args:
 #   - "--hwdec=auto"

@@ -116,6 +116,9 @@ type Config struct {
 	// AutoNext continues to the next episode automatically when one ends,
 	// and enables the player's next/previous controls for series playback.
 	AutoNext bool `yaml:"auto_next"`
+	// Prefetch resolves the next episode in the background (after a short
+	// delay) so switching is instant. Disable on slow links.
+	Prefetch bool `yaml:"prefetch"`
 	// MpvArgs holds extra command-line arguments appended to every mpv invocation.
 	// Example: ["--hwdec=auto", "--volume=80"]
 	MpvArgs []string    `yaml:"mpv_args"`
@@ -133,6 +136,7 @@ func LoadConfig() *Config {
 		Quality:        "",       // Default: prompt user to select quality
 		MinimizeOnPlay: true,     // Default: hide terminal while the player is open
 		AutoNext:       true,     // Default: continue to the next episode automatically
+		Prefetch:       true,     // Default: warm the next episode in the background
 		YtLang:         "",       // Default: let youtube decide
 	}
 
@@ -160,6 +164,7 @@ func LoadConfig() *Config {
 			Quality:        "",
 			MinimizeOnPlay: true,
 			AutoNext:       true,
+			Prefetch:       true,
 			YtLang:         "",
 		}
 	}

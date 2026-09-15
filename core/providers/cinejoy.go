@@ -41,7 +41,7 @@ const (
 	cjPerServerTimeout = 25 * time.Second
 	cjAuthBodyLimit    = 4 << 20
 	cjPlaylistLimit    = 4 << 20
-	cjSegmentLimit     = 16 << 20
+	cjSegmentLimit     = 1 << 20
 	cjCatalogTTL       = 5 * time.Minute
 )
 

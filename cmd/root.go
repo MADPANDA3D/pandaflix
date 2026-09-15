@@ -1320,11 +1320,17 @@ func playSeriesWithControls(
 		<-entry.ready
 		return entry.res
 	}
+	// Prefetch is delayed so the start of playback is not competing with
+	// stream validation traffic, and only the next episode is warmed.
+	const prefetchDelay = 20 * time.Second
 	prefetch := func(i int) {
-		if i < 0 || i >= len(allEpisodes) {
+		if !cfg.Prefetch || i < 0 || i >= len(allEpisodes) {
 			return
 		}
-		go func() { _ = resolveCached(i) }()
+		go func() {
+			time.Sleep(prefetchDelay)
+			_ = resolveCached(i)
+		}()
 	}
 
 	idx := startIdx
@@ -1348,10 +1354,9 @@ func playSeriesWithControls(
 			fmt.Printf("Stream URL: %s\n", streamURL)
 		}
 
-		// Warm the neighbours so the player controls and auto-advance are
+		// Warm the next episode so the player controls and auto-advance are
 		// instant.
 		prefetch(idx + 1)
-		prefetch(idx - 1)
 
 		lastPos := getLastPosition(histDB, ctx.Title, seasonNum, ewn.num)
 		result, err := core.PlayWithControls(playURL, ctx.Title+" - "+ep.Name, referer, USER_AGENT, streamOrigin(providerName), streamAudioLang(providerName), subtitles, debugMode, lastPos, core.HookContext{
