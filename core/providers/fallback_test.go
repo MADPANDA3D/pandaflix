@@ -2,10 +2,46 @@ package providers
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/MADPANDA3D/pandaflix/core"
 )
+
+type stalledTransport struct{}
+
+func (stalledTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	<-req.Context().Done()
+	return nil, req.Context().Err()
+}
+
+func TestFallbackCancelsStalledCinejoy(t *testing.T) {
+	cinejoy := NewCinejoy(&http.Client{Transport: stalledTransport{}})
+	backup := &fakeProvider{link: "https://backup.example/movie.m3u8"}
+	f := NewFallback([]core.Provider{cinejoy, backup}, []string{"Cinejoy", "Backup"})
+	f.AttemptTimeout = 10 * time.Millisecond
+	started := time.Now()
+	link, err := f.GetLink("movie|1|Title|2000")
+	if err != nil || link != backup.link || backup.linkCalls != 1 {
+		t.Fatalf("stalled provider did not fall back: %q %v", link, err)
+	}
+	if time.Since(started) > time.Second {
+		t.Fatal("fallback exceeded the bounded attempt")
+	}
+}
+
+func TestFallbackRejectsEmptyPlaybackLink(t *testing.T) {
+	f := newTestFallback(&fakeProvider{}, &fakeProvider{link: "https://backup.example/movie.m3u8"})
+	link, err := f.GetLink("movie|1|Title|2000")
+	if err != nil || link == "" {
+		t.Fatalf("empty primary link prevented fallback: %q %v", link, err)
+	}
+}
+
+var _ contextLinkProvider = (*Cinejoy)(nil)
+var _ contextLinkProvider = (*VixSrc)(nil)
+var _ contextLinkProvider = (*LookMovie)(nil)
 
 type fakeProvider struct {
 	searchResults []core.SearchResult

@@ -1,8 +1,10 @@
 package providers
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/MADPANDA3D/pandaflix/core"
 )
@@ -16,10 +18,16 @@ import (
 type Fallback struct {
 	Providers []core.Provider
 	Names     []string
+	// AttemptTimeout bounds each context-aware resolver in the chain.
+	AttemptTimeout time.Duration
+}
+
+type contextLinkProvider interface {
+	GetLinkContext(context.Context, string) (string, error)
 }
 
 func NewFallback(providers []core.Provider, names []string) *Fallback {
-	return &Fallback{Providers: providers, Names: names}
+	return &Fallback{Providers: providers, Names: names, AttemptTimeout: 4 * time.Second}
 }
 
 func (f *Fallback) providerCount() int {
@@ -145,9 +153,24 @@ func (f *Fallback) GetLink(serverID string) (string, error) {
 
 	var lastErr error
 	for attempt, idx := range order {
-		link, err := f.Providers[idx].GetLink(id)
-		if err == nil {
+		var link string
+		var err error
+		if provider, ok := f.Providers[idx].(contextLinkProvider); ok {
+			timeout := f.AttemptTimeout
+			if timeout <= 0 {
+				timeout = 4 * time.Second
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			link, err = provider.GetLinkContext(ctx, id)
+			cancel()
+		} else {
+			link, err = f.Providers[idx].GetLink(id)
+		}
+		if err == nil && strings.TrimSpace(link) != "" {
 			return link, nil
+		}
+		if err == nil {
+			err = fmt.Errorf("empty playback link")
 		}
 		lastErr = err
 		if attempt+1 < len(order) {

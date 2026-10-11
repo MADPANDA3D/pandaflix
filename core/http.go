@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,21 +16,11 @@ func NewClient() *http.Client {
 	os.Unsetenv("NO_PROXY")
 	os.Unsetenv("no_proxy")
 
-	// Force Cloudflare DNS to bypass ISP DNS poisoning
-	// The pure-Go resolver sometimes reads stale/poisoned system DNS
-	// even when warp-cli is running.
+	// Follow the current network's DNS configuration. Forcing a public UDP
+	// resolver breaks every provider on networks that block external DNS.
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
-		Resolver: &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{
-					Timeout: 10 * time.Second,
-				}
-				return d.DialContext(ctx, "udp", "1.1.1.1:53")
-			},
-		},
 	}
 
 	return &http.Client{

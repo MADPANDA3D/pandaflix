@@ -2,6 +2,7 @@ package core
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -370,6 +371,11 @@ func downloadAndDecompressGzip(subURL string, client *http.Client) (string, erro
 
 // GetIMDBIDFromTMDB fetches the IMDB ID for a given TMDB ID and media type.
 func GetIMDBIDFromTMDB(tmdbID, mediaType string, client *http.Client) string {
+	return GetIMDBIDFromTMDBContext(context.Background(), tmdbID, mediaType, client)
+}
+
+// GetIMDBIDFromTMDBContext allows a provider's lookup to share its deadline.
+func GetIMDBIDFromTMDBContext(ctx context.Context, tmdbID, mediaType string, client *http.Client) string {
 	if tmdbID == "" {
 		return ""
 	}
@@ -381,7 +387,7 @@ func GetIMDBIDFromTMDB(tmdbID, mediaType string, client *http.Client) string {
 		mediaType = "tv"
 	}
 	apiURL := fmt.Sprintf("%s/%s/%s/external_ids?api_key=%s", TMDB_BASE_URL, mediaType, tmdbID, TMDB_API_KEY)
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return ""
 	}
