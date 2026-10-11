@@ -82,6 +82,11 @@ func (v *VixSrc) GetServers(id string) ([]core.Server, error) {
 }
 
 func (v *VixSrc) GetLink(serverID string) (string, error) {
+	return v.GetLinkContext(context.Background(), serverID)
+}
+
+// GetLinkContext lets the fallback chain cancel a stalled resolver.
+func (v *VixSrc) GetLinkContext(parent context.Context, serverID string) (string, error) {
 	req, err := parseTMDBMediaID(serverID)
 	if err != nil {
 		return "", err
@@ -90,7 +95,7 @@ func (v *VixSrc) GetLink(serverID string) (string, error) {
 		return "", fmt.Errorf("vixsrc: series resolution requires season and episode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), vixsrcResolveTTL)
+	ctx, cancel := context.WithTimeout(parent, vixsrcResolveTTL)
 	defer cancel()
 
 	embedURL, err := v.vixsrcEmbedURL(ctx, req)

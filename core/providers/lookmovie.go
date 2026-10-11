@@ -211,11 +211,18 @@ func (l *LookMovie) GetServers(id string) ([]core.Server, error) {
 }
 
 func (l *LookMovie) GetLink(serverID string) (string, error) {
+	return l.GetLinkContext(context.Background(), serverID)
+}
+
+// GetLinkContext bounds metadata lookup as well as playback resolution.
+func (l *LookMovie) GetLinkContext(parent context.Context, serverID string) (string, error) {
+	ctx, cancel := context.WithTimeout(parent, lookmovieHTTPTimeout)
+	defer cancel()
 	req, err := parseLookMovieID(serverID)
 	if err != nil {
 		// Accept the shared TMDB ID format so LookMovie can participate in the
 		// provider fallback chain.
-		req, err = l.lookmovieRequestFromTMDB(serverID)
+		req, err = l.lookmovieRequestFromTMDBContext(ctx, serverID)
 		if err != nil {
 			return "", err
 		}
@@ -223,9 +230,6 @@ func (l *LookMovie) GetLink(serverID string) (string, error) {
 	if req.kind == "series" && (req.season == "" || req.episode == "") {
 		return "", fmt.Errorf("lookmovie: series resolution requires season and episode")
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), lookmovieHTTPTimeout)
-	defer cancel()
 
 	// View page -> play page (carries the hash/expires credentials).
 	viewPath := "movies/view/"
@@ -304,6 +308,10 @@ func (l *LookMovie) GetLink(serverID string) (string, error) {
 // lookmovieRequestFromTMDB maps a shared TMDB request ID onto a LookMovie
 // slug by matching IMDb ID (via TMDB external ids) or title/year.
 func (l *LookMovie) lookmovieRequestFromTMDB(id string) (lookmovieRequest, error) {
+	return l.lookmovieRequestFromTMDBContext(context.Background(), id)
+}
+
+func (l *LookMovie) lookmovieRequestFromTMDBContext(ctx context.Context, id string) (lookmovieRequest, error) {
 	tmdb, err := parseTMDBMediaID(id)
 	if err != nil {
 		return lookmovieRequest{}, fmt.Errorf("invalid lookmovie ID")
@@ -314,14 +322,14 @@ func (l *LookMovie) lookmovieRequestFromTMDB(id string) (lookmovieRequest, error
 		mediaType = "tv"
 		api = "shows"
 	}
-	imdb := core.GetIMDBIDFromTMDB(tmdb.tmdb, mediaType, l.Client)
+	imdb := core.GetIMDBIDFromTMDBContext(ctx, tmdb.tmdb, mediaType, l.Client)
 
 	params := url.Values{}
 	params.Set("q", tmdb.title)
 	if tmdb.title == "" {
 		params.Set("q", tmdb.tmdb)
 	}
-	body, err := lookmovieFetch(context.Background(), l.Client, LookMovieBaseURL+"/api/v1/"+api+"/do-search/?"+params.Encode(), 2<<20)
+	body, err := lookmovieFetch(ctx, l.Client, LookMovieBaseURL+"/api/v1/"+api+"/do-search/?"+params.Encode(), 2<<20)
 	if err != nil {
 		return lookmovieRequest{}, fmt.Errorf("lookmovie: search: %w", err)
 	}
