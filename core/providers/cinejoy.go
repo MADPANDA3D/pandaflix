@@ -148,6 +148,11 @@ func (c *Cinejoy) GetServers(id string) ([]core.Server, error) {
 }
 
 func (c *Cinejoy) GetLink(serverID string) (string, error) {
+	return c.GetLinkContext(context.Background(), serverID)
+}
+
+// GetLinkContext lets the fallback chain cancel a stalled resolver.
+func (c *Cinejoy) GetLinkContext(parent context.Context, serverID string) (string, error) {
 	cj, err := parseTMDBMediaID(serverID)
 	if err != nil {
 		return "", err
@@ -156,7 +161,7 @@ func (c *Cinejoy) GetLink(serverID string) (string, error) {
 		return "", fmt.Errorf("cinejoy: series resolution requires season and episode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cjRaceTimeout)
+	ctx, cancel := context.WithTimeout(parent, cjRaceTimeout)
 	defer cancel()
 
 	wasm, err := c.fetchWASM(ctx)

@@ -325,6 +325,8 @@ You can set the default provider in the config file (`~/.config/pandaflix/config
 | Anime (sub) | `anime` or `allanime` | Anime | Subtitled. Uses AllAnime. |
 | Anime (dub) | `anime-dub` or `allanime-dub` | Anime | Dubbed. Uses AllAnime. |
 
+Movie playback automatically tries Cinejoy, VixSrc, then LookMovie when a source fails, returns an empty link, or exceeds its four-second resolution budget. Each timed-out request is cancelled before the next provider is attempted. Explicit single-provider choices retain their normal timeouts. All providers use the current network’s system DNS, so router and VPN DNS changes are respected.
+
 Legacy `cineby`/`vidking`/`videasy` configs keep working and resolve via Cinejoy; the Videasy backend is being discontinued. Example config:
 ```yaml
 provider: cinejoy
